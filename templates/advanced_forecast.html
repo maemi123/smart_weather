@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专业气象预报系统 - 杭州</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #3498db;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #3498db, #2c3e50);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: #ecf0f1;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #34495e;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            background: #d5dbdb;
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #e9ecef;
+        }
+
+        .section-title {
+            color: #2c3e50;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 24px;
+            background: #3498db;
+            border-radius: 2px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .model-selector {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .model-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .model-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .model-checkbox .color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .forecast-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-left: 5px solid;
+            transition: transform 0.3s ease;
+        }
+
+        .forecast-card:hover {
+            transform: translateX(5px);
+        }
+
+        .confidence-high { border-left-color: #2ecc71; }
+        .confidence-medium { border-left-color: #f39c12; }
+        .confidence-low { border-left-color: #e74c3c; }
+
+        .temp-range {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 10px 0;
+        }
+
+        .ai-analysis {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .ai-analysis h3 {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .ai-content {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            line-height: 1.8;
+        }
+
+        .data-source {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #fcc;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌤️ 专业气象预报分析系统</h1>
+            <p class="subtitle">杭州市 | 多模式数值预报对比 | 智能AI分析</p>
+            <p class="subtitle">更新时间: {{ now }}</p>
+        </div>
+
+        <!-- 导航标签 -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('detailed')">72小时精细化</button>
+            <button class="tab-btn" onclick="switchTab('models')">多模式对比</button>
+            <button class="tab-btn" onclick="switchTab('summary')">7天趋势</button>
+            <button class="tab-btn" onclick="switchTab('ai')">AI智能分析</button>
+        </div>
+
+        {% if not detailed_72h %}
+        <div class="error-message">
+            ⚠️ 数据加载失败或网络连接异常。请刷新页面重试。
+        </div>
+        {% endif %}
+
+        <!-- 标签1: 72小时精细化预报 -->
+        <div id="detailed" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">未来72小时精细化预报（逐小时）</h2>
+
+                {% if detailed_72h and detailed_72h.data %}
+                <div class="model-selector">
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="temp_line" checked onchange="updateDetailedChart()">
+                        <div class="color-indicator" style="background: #e74c3c;"></div>
+                        <label for="temp_line">温度(℃)</label>
+                    </div>
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="precip_bar" checked onchange="updateDetailedChart()">
+                        <div class="color-indicator" style="background: #3498db;"></div>
+                        <label for="precip_bar">降水量(mm)</label>
+                    </div>
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="humidity_line" checked onchange="updateDetailedChart()">
+                        <div class="color-indicator" style="background: #9b59b6;"></div>
+                        <label for="humidity_line">湿度(%)</label>
+                    </div>
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="wind_line" onchange="updateDetailedChart()">
+                        <div class="color-indicator" style="background: #2ecc71;"></div>
+                        <label for="wind_line">风速(km/h)</label>
+                    </div>
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="weather_icons" checked onchange="updateDetailedChart()">
+                        <div class="color-indicator" style="background: #f39c12;"></div>
+                        <label for="weather_icons">天况图标</label>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div id="detailedChart"></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                    <div class="forecast-card">
+                        <h4>🌡️ 温度极值</h4>
+                        <div class="temp-range">
+                            {% set temps = detailed_72h.data.temperature_2m %}
+                            {% if temps %}
+                                {% set sorted_temps = temps | sort %}
+                                {{ sorted_temps[0] | round(1) }}°C ~ {{ sorted_temps[-1] | round(1) }}°C
+                            {% endif %}
+                        </div>
+                        <small>未来72小时温度范围</small>
+                    </div>
+
+                    <div class="forecast-card">
+                        <h4>💧 累计降水</h4>
+                        <div class="temp-range">
+                            {% set precips = detailed_72h.data.precipitation %}
+                            {% if precips %}
+                            {{ (precips | sum) | round(1) }} mm
+                            {% endif %}
+                        </div>
+                        <small>72小时总降水量</small>
+                    </div>
+
+                    <div class="forecast-card">
+                        <h4>💨 平均风速</h4>
+                        <div class="temp-range">
+                            {% set winds = detailed_72h.data.wind_speed_10m %}
+                            {% if winds and winds|length > 0 %}
+                                {% set avg_wind = (winds | sum) / (winds | length) %}
+                                {{ avg_wind | round(1) }} km/h
+                            {% endif %}
+                        </div>
+                        <small>10米高度平均风速</small>
+                    </div>
+                </div>
+
+                <script>
+                    // 存储详细数据供JS使用
+                    window.detailedData = {{ detailed_72h | tojson }};
+
+                    // 在 updateDetailedChart 函数中，修改为：
+
+                    function updateDetailedChart() {
+                        const data = window.detailedData;
+                        if (!data || !data.full_labels) {
+                            console.error("详细数据不可用");
+                            return;
+                        }
+
+                        const traces = [];
+                        const displayHours = 72;
+                        const maxPoints = Math.min(displayHours, data.full_labels.length);
+
+                        const labels = data.full_labels.slice(0, maxPoints);
+                        const dayLabels = data.day_labels ? data.day_labels.slice(0, maxPoints) : labels;
+
+                        // 1. 温度线（红色）
+                        if (document.getElementById('temp_line').checked && data.data.temperature_2m) {
+                            traces.push({
+                                x: labels,
+                                y: data.data.temperature_2m.slice(0, maxPoints),
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                name: '温度 (°C)',
+                                line: { color: '#e74c3c', width: 3 },
+                                marker: { size: 4 },
+                                yaxis: 'y1'
+                            });
+                        }
+
+                        // 2. 降水量柱状图（蓝色/浅蓝色）
+                        if (document.getElementById('precip_bar').checked && data.data.precipitation) {
+                            const precipData = data.data.precipitation.slice(0, maxPoints);
+                            const weatherCodes = data.data.weather_code ? data.data.weather_code.slice(0, maxPoints) : [];
+                            
+                            // 固态降水代码 (雪)
+                            const snowCodes = [71, 73, 75, 77, 85, 86];
+                            // 冻雨代码
+                            const freezingCodes = [56, 57, 66, 67];
+
+                            const barColors = precipData.map((p, i) => {
+                                if (p <= 0) return 'rgba(52, 152, 219, 0.2)';
+                                
+                                const code = weatherCodes[i];
+                                if (snowCodes.includes(code)) {
+                                    return '#87CEFA'; // 浅蓝色 (雪)
+                                } else if (freezingCodes.includes(code)) {
+                                    return '#00CED1'; // 青色 (冻雨)
+                                } else {
+                                    return '#3498db'; // 标准蓝 (雨)
+                                }
+                            });
+
+                            traces.push({
+                                x: labels,
+                                y: precipData,
+                                type: 'bar',
+                                name: '降水 (mm)',
+                                marker: {
+                                    color: barColors,
+                                    opacity: 0.8
+                                },
+                                yaxis: 'y2'
+                            });
+                        }
+
+                        // 3. 湿度线（紫色）- 修复
+                        if (document.getElementById('humidity_line').checked && data.data.relative_humidity_2m) {
+                            traces.push({
+                                x: labels,
+                                y: data.data.relative_humidity_2m.slice(0, maxPoints),
+                                type: 'scatter',
+                                mode: 'lines',
+                                name: '湿度 (%)',
+                                line: { color: '#9b59b6', width: 2, dash: 'dash' },
+                                yaxis: 'y3'
+                            });
+                        }
+
+                        // 4. 天况图标（橙色）- 新增
+                        if (document.getElementById('weather_icons').checked && data.data.weather_emoji) {
+                            traces.push({
+                                x: labels.filter((_, i) => i % 6 === 0), // 每6小时显示一个图标
+                                y: data.data.temperature_2m
+                                    ? data.data.temperature_2m.filter((_, i) => i % 6 === 0).map(t => t + 2)
+                                    : Array(Math.ceil(maxPoints/6)).fill(25),
+                                type: 'scatter',
+                                mode: 'text',
+                                name: '天况',
+                                text: data.data.weather_emoji.filter((_, i) => i % 6 === 0),
+                                textposition: 'top center',
+                                textfont: { size: 20 },
+                                showlegend: false,
+                                hoverinfo: 'text',
+                                hovertext: data.data.weather_name
+                                    ? data.data.weather_name.filter((_, i) => i % 6 === 0)
+                                    : []
+                            });
+                        }
+
+                        // 5. 风速（绿色）- 可选
+                        if (document.getElementById('wind_line').checked && data.data.wind_speed_10m) {
+                            traces.push({
+                                x: labels,
+                                y: data.data.wind_speed_10m.slice(0, maxPoints),
+                                type: 'scatter',
+                                mode: 'lines',
+                                name: '风速 (km/h)',
+                                line: { color: '#2ecc71', width: 2 },
+                                yaxis: 'y4'
+                            });
+                        }
+
+                        // 修复：添加风向箭头（确保有wind_arrows数据）
+                        if (data.data.wind_arrows && data.data.wind_arrows.length >= maxPoints) {
+                            traces.push({
+                                x: labels.filter((_, i) => i % 6 === 0), // 每6小时一个箭头
+                                y: data.data.wind_speed_10m
+                                    .filter((_, i) => i % 6 === 0)
+                                    .slice(0, Math.ceil(maxPoints/6))
+                                    .map(v => v + 1), // 略微上移避免重叠
+                                type: 'scatter',
+                                mode: 'text',
+                                name: '风向',
+                                text: data.data.wind_arrows.filter((_, i) => i % 6 === 0),
+                                textposition: 'top center',
+                                textfont: { size: 16 },
+                                showlegend: false,
+                                hoverinfo: 'text+x'
+                            });
+                        }
+
+
+                        // 设置Y轴位置
+                        const layout = {
+                            title: '未来72小时精细化预报',
+                            xaxis: {
+                                title: '日期时间',
+                                tickangle: 45,
+                                gridcolor: '#f0f0f0',
+                                tickmode: 'array',
+                                tickvals: labels.filter((_, i) => i % 12 === 0),
+                                ticktext: dayLabels.filter((_, i) => i % 12 === 0)
+                            },
+                            yaxis: {
+                                title: '温度 (°C)',
+                                side: 'left',
+                                position: 0.05,
+                                gridcolor: '#f0f0f0'
+                            },
+                            yaxis2: {
+                                title: '降水 (mm)',
+                                side: 'right',
+                                overlaying: 'y',
+                                position: 0.95,
+                                gridcolor: '#f0f0f0'
+                            },
+                            yaxis3: {
+                                title: '湿度 (%)',
+                                side: 'right',
+                                overlaying: 'y',
+                                position: 0.85,
+                                gridcolor: '#f0f0f0'
+                            },
+                            yaxis4: {
+                                title: '风速 (km/h)',
+                                side: 'right',
+                                overlaying: 'y',
+                                position: 0.75,
+                                gridcolor: '#f0f0f0',
+                                showgrid: false
+                            },
+                            plot_bgcolor: '#ffffff',
+                            paper_bgcolor: '#ffffff',
+                            showlegend: true,
+                            legend: {
+                                x: 0,
+                                y: 1.2,
+                                orientation: 'h',
+                                font: { size: 10 }
+                            },
+                            margin: { l: 50, r: 120, t: 50, b: 100 }
+                        };
+
+                        Plotly.newPlot('detailedChart', traces, layout);
+                    }
+
+                    // 初始加载
+                    updateDetailedChart();
+                </script>
+                {% else %}
+                <div class="error-message">
+                    ⚠️ 72小时精细化数据暂不可用，请稍后重试。
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 标签2: 多模式对比 -->
+        <div id="models" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">多模式数值预报对比</h2>
+
+                {% if multi_model and multi_model|length > 1 %}
+                <div class="model-selector" id="modelSelector">
+                    {% for model_key, model_data in multi_model.items() %}
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="model_{{ model_key }}"
+                               {% if model_key == 'ecmwf' or model_key == 'ensemble' %}checked{% endif %}
+                               onchange="updateModelComparison()">
+                        <div class="color-indicator" style="background: {{ model_data.color }};"></div>
+                        <label for="model_{{ model_key }}">{{ model_data.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0;">对比参数选择：</h4>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="model_param" value="temperature_2m" checked onchange="updateModelComparison()">
+                            温度
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="model_param" value="precipitation" onchange="updateModelComparison()">
+                            降水
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="model_param" value="wind_speed_10m" onchange="updateModelComparison()">
+                            风速
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="model_param" value="relative_humidity_2m" onchange="updateModelComparison()">
+                            湿度
+                        </label>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div id="modelComparisonChart"></div>
+                </div>
+
+                <script>
+                    // 存储多模式数据
+                    window.multiModelData = {{ multi_model | tojson }};
+
+                    function updateModelComparison() {
+                        const traces = [];
+                        const models = window.multiModelData;
+
+                        if (!models) {
+                            console.error("多模式数据不可用");
+                            return;
+                        }
+
+                        // 选择要显示的参数
+                        const selectedParam = document.querySelector('input[name="model_param"]:checked')?.value || 'temperature_2m';
+                        const paramNames = {
+                            'temperature_2m': '温度 (°C)',
+                            'precipitation': '降水 (mm)',
+                            'wind_speed_10m': '风速 (km/h)',
+                            'relative_humidity_2m': '湿度 (%)'
+                        };
+
+                        // 收集选中的模型
+                        const selectedModels = [];
+                        for (const [modelKey, modelData] of Object.entries(models)) {
+                            const checkbox = document.getElementById(`model_${modelKey}`);
+                            if (checkbox && checkbox.checked && modelData.data) {
+                                selectedModels.push({key: modelKey, data: modelData});
+                            }
+                        }
+
+                        if (selectedModels.length === 0) {
+                            // 显示提示
+                            Plotly.newPlot('modelComparisonChart', [{
+                                x: [0, 1],
+                                y: [0, 1],
+                                type: 'scatter',
+                                mode: 'text',
+                                text: ['请至少选择一个模型'],
+                                textposition: 'middle center',
+                                textfont: { size: 16, color: '#7f8c8d' }
+                            }], {
+                                xaxis: {showgrid: false, zeroline: false, showticklabels: false},
+                                yaxis: {showgrid: false, zeroline: false, showticklabels: false},
+                                plot_bgcolor: '#ffffff',
+                                paper_bgcolor: '#ffffff',
+                                margin: {t: 30, b: 30, l: 30, r: 30}
+                            });
+                            return;
+                        }
+
+                        // 使用第一个模型的时间轴
+                        const baseModel = selectedModels[0].data;
+                        const displayHours = 120; // 120小时（5天）
+
+                        let timeLabels = baseModel.data.full_labels || baseModel.data.hours || [];
+                        let displayLabels = [];
+
+                        // 生成时间标签（每24小时显示一次日期）
+                        if (timeLabels.length > 0) {
+                            // 只取前120小时
+                            const maxPoints = Math.min(displayHours, timeLabels.length);
+                            timeLabels = timeLabels.slice(0, maxPoints);
+
+                            // 创建简化的时间标签（每24小时显示日期）
+                            displayLabels = timeLabels.map((label, index) => {
+                                if (index % 24 === 0) {
+                                    // 显示日期
+                                    return label.split(' ')[0]; // 只显示日期部分
+                                } else if (index % 6 === 0) {
+                                    // 显示时间
+                                    return label.split(' ')[1]; // 只显示时间部分
+                                }
+                                return '';
+                            });
+                        }
+
+                        // 为每个选中的模型添加轨迹
+                        selectedModels.forEach(({key, data}) => {
+                            const modelParam = data.data.data[selectedParam];
+                            const stats = data.data.statistics?.[selectedParam];
+
+                            if (modelParam && modelParam.length > 0) {
+                                const maxPoints = Math.min(displayHours, modelParam.length);
+                                const values = modelParam.slice(0, maxPoints);
+
+                                // 主轨迹（均值或模型值）
+                                const trace = {
+                                    x: timeLabels.slice(0, maxPoints),
+                                    y: values,
+                                    type: 'scatter',
+                                    mode: 'lines',
+                                    name: data.name,
+                                    line: {
+                                        color: data.color,
+                                        width: key === 'ensemble' ? 3 : 2,
+                                        dash: key === 'ensemble' ? 'solid' : 'solid'
+                                    }
+                                };
+
+                                traces.push(trace);
+
+                                // 修复：如果是集合预报且有置信区间，正确显示
+                                if (key === 'ensemble' && stats && stats.q25 && stats.q75) {
+                                    const q25 = stats.q25.slice(0, maxPoints);
+                                    const q75 = stats.q75.slice(0, maxPoints);
+
+                                    if (q25.length === q75.length && q25.length === values.length) {
+                                        // 上界
+                                        traces.push({
+                                            x: timeLabels.slice(0, maxPoints),
+                                            y: q75,
+                                            type: 'scatter',
+                                            mode: 'lines',
+                                            name: `${data.name} - 上界`,
+                                            line: { color: data.color, width: 0 },
+                                            showlegend: false,
+                                            hoverinfo: 'none'
+                                        });
+
+                                        // 下界（填充区域）
+                                        traces.push({
+                                            x: timeLabels.slice(0, maxPoints),
+                                            y: q25,
+                                            type: 'scatter',
+                                            mode: 'lines',
+                                            fill: 'tonexty',
+                                            fillcolor: data.color.replace(')', ', 0.2)').replace('rgb', 'rgba'),
+                                            name: `${data.name} - 下界`,
+                                            line: { color: data.color, width: 0 },
+                                            showlegend: false,
+                                            hoverinfo: 'none'
+                                        });
+                                    }
+                                }
+                            }
+                        });
+
+                        const layout = {
+                            title: `多模式${paramNames[selectedParam]}预报对比（前5天）`,
+                            xaxis: {
+                                title: '时间',
+                                gridcolor: '#f0f0f0',
+                                tickangle: 45,
+                                tickmode: 'array',
+                                tickvals: timeLabels.filter((_, i) => i % 12 === 0), // 每12小时一个主刻度
+                                ticktext: displayLabels.filter((_, i) => i % 12 === 0),
+                                showgrid: true
+                            },
+                            yaxis: {
+                                title: paramNames[selectedParam],
+                                gridcolor: '#f0f0f0',
+                                showgrid: true
+                            },
+                            plot_bgcolor: '#ffffff',
+                            paper_bgcolor: '#ffffff',
+                            showlegend: true,
+                            legend: {
+                                x: 0,
+                                y: 1.15,
+                                orientation: 'h',
+                                font: { size: 10 }
+                            },
+                            margin: { l: 60, r: 30, t: 60, b: 100 }
+                        };
+
+                        Plotly.newPlot('modelComparisonChart', traces, layout);
+                    }
+
+                    // 初始加载
+                    updateModelComparison();
+                </script>
+                {% else %}
+                <div class="error-message">
+                    ⚠️ 多模式对比数据暂不可用，可能是网络问题或API限制。
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 标签3: 7天趋势预报 -->
+        <div id="summary" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">未来7天趋势预报（含不确定性分析）</h2>
+
+                {% if summary_10day %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+                    {% for day in summary_10day %}
+                    <div class="forecast-card confidence-{{ day.confidence }}">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0;">{{ day.date }} ({{ day.weekday }})</h3>
+                            <span style="font-size: 0.9em; color: #7f8c8d;">
+                                {% if day.confidence == '高' %}🟢 高可信度{% endif %}
+                                {% if day.confidence == '中' %}🟡 中等可信度{% endif %}
+                                {% if day.confidence == '低' %}🔴 低可信度{% endif %}
+                            </span>
+                        </div>
+
+                        <div style="text-align: center; margin: 15px 0;">
+                            <div style="font-size: 1.2em; color: #2c3e50; margin-bottom: 5px;">
+                                {{ day.weather }}
+                            </div>
+                            <div class="temp-range">
+                                {{ day.temp_min }}°C ~ {{ day.temp_max }}°C
+                            </div>
+                            <small style="color: #e74c3c;">
+                                (±{{ day.temp_range }}°C 误差范围)
+                            </small>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 0.9em; color: #7f8c8d;">降水概率</div>
+                                <div style="font-size: 1.1em; font-weight: bold; color: #3498db;">
+                                    {{ day.precip_prob }}%
+                                </div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 0.9em; color: #7f8c8d;">累计降水</div>
+                                <div style="font-size: 1.1em; font-weight: bold; color: #3498db;">
+                                    {{ day.precip_total }}mm
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if day.confidence != '高' %}
+                        <div style="margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 5px; font-size: 0.9em;">
+                            ⚠️ 远期预报不确定性较高，请关注最新更新
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- 7趋势图 -->
+                <div class="chart-container" style="margin-top: 30px;">
+                    <canvas id="tenDayTrendChart"></canvas>
+                </div>
+
+                <script>
+                    // 准备7天趋势图数据
+                    const summaryData = {{ summary_10day | tojson }};
+
+                    // 7趋势图表 - 最直接的版本（绝对能显示三个区域）
+                    if (summaryData && summaryData.length > 0) {
+                        const dates = summaryData.map(d => `${d.date}(${d.weekday})`);
+                        const tempAvgs = summaryData.map(d => d.temp_avg);
+                        const tempMins = summaryData.map(d => d.temp_min);
+                        const tempMaxs = summaryData.map(d => d.temp_max);
+                        const tempLowers = summaryData.map(d => d.temp_lower);
+                        const tempUppers = summaryData.map(d => d.temp_upper);
+
+                        const tempCtx = document.getElementById('tenDayTrendChart').getContext('2d');
+
+                        // 手动创建填充区域
+                        const confidenceArea = {
+                            labels: dates,
+                            datasets: [{
+                                label: '置信区间',
+                                data: tempUppers,
+                                borderColor: 'transparent',
+                                backgroundColor: 'rgba(155, 89, 182, 0.15)',
+                                fill: true
+                            }, {
+                                label: '',
+                                data: tempLowers,
+                                borderColor: 'transparent',
+                                backgroundColor: 'rgba(155, 89, 182, 0.15)'
+                            }]
+                        };
+
+                        const forecastRangeArea = {
+                            labels: dates,
+                            datasets: [{
+                                label: '预报范围',
+                                data: tempMaxs,
+                                borderColor: 'transparent',
+                                backgroundColor: 'rgba(52, 152, 219, 0.25)',
+                                fill: true
+                            }, {
+                                label: '',
+                                data: tempMins,
+                                borderColor: 'transparent',
+                                backgroundColor: 'rgba(52, 152, 219, 0.25)'
+                            }]
+                        };
+
+                        // 创建主图表
+                        const chart = new Chart(tempCtx, {
+                            type: 'line',
+                            data: {
+                                labels: dates,
+                                datasets: [
+                                    // 置信区间区域（最底层）
+                                    {
+                                        label: '置信区间',
+                                        data: tempUppers,
+                                        borderColor: 'transparent',
+                                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                                        fill: '-1',
+                                        tension: 0,
+                                        pointRadius: 0
+                                    },
+                                    {
+                                        label: '',
+                                        data: tempLowers,
+                                        borderColor: 'transparent',
+                                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                                        fill: false,
+                                        tension: 0,
+                                        pointRadius: 0
+                                    },
+                                    // 预报范围区域（中间层）
+                                    {
+                                        label: '预报范围',
+                                        data: tempMaxs,
+                                        borderColor: 'transparent',
+                                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                                        fill: '-1',
+                                        tension: 0,
+                                        pointRadius: 0
+                                    },
+                                    {
+                                        label: '',
+                                        data: tempMins,
+                                        borderColor: 'transparent',
+                                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                                        fill: false,
+                                        tension: 0,
+                                        pointRadius: 0
+                                    },
+                                    // 主报平均温度线（最上层）
+                                    {
+                                        label: '主报平均温度',
+                                        data: tempAvgs,
+                                        borderColor: '#e74c3c',
+                                        backgroundColor: '#e74c3c',
+                                        borderWidth: 3,
+                                        fill: false,
+                                        tension: 0.2,
+                                        pointRadius: 6,
+                                        pointBackgroundColor: '#e74c3c'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    title: { display: true, text: '未来7天温度趋势' },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: ctx => dates[ctx[0].dataIndex],
+                                            label: ctx => {
+                                                const i = ctx.dataIndex;
+                                                return [
+                                                    `主报平均: ${tempAvgs[i].toFixed(1)}°C`,
+                                                    `预报范围: ${tempMins[i].toFixed(1)}~${tempMaxs[i].toFixed(1)}°C`,
+                                                    `置信区间: ${tempLowers[i].toFixed(1)}~${tempUppers[i].toFixed(1)}°C`
+                                                ];
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: { ticks: { maxRotation: 45 } },
+                                    y: { title: { display: true, text: '温度 (°C)' } }
+                                }
+                            }
+                        });
+                    }
+                </script>
+                {% else %}
+                <div class="error-message">
+                    ⚠️ 10天趋势预报数据暂不可用。
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 标签4: AI智能分析 -->
+        <div id="ai" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">🤖 AI智能气象分析</h2>
+
+                <div class="ai-analysis">
+                    <h3>气象专家分析报告（基于多源数据）</h3>
+                    <div class="ai-content" id="aiContent">
+                        正在生成AI分析报告...
+                    </div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <button onclick="generateAIAnalysis()"
+                                style="background: white; color: #764ba2; border: none; padding: 12px 24px; border-radius: 25px; font-weight: bold; cursor: pointer;">
+                            🔄 重新生成分析
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <h4 style="margin-bottom: 10px;">📋 分析依据的数据摘要</h4>
+                    <pre style="background: white; padding: 15px; border-radius: 8px; overflow: auto; max-height: 200px; font-size: 0.9em;">
+{{ ai_analysis_text }}
+                    </pre>
+                </div>
+
+                <script>
+                    // 初始生成AI分析
+                    generateAIAnalysis();
+
+                    async function generateAIAnalysis() {
+                        const aiContent = document.getElementById('aiContent');
+                        aiContent.innerHTML = '🤔 AI正在分析气象数据，请稍候...';
+
+                        try {
+                            const response = await fetch('/generate-ai-analysis', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    analysis_text: `{{ ai_analysis_text | safe }}`
+                                })
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                // 将AI返回的文本进行格式化处理
+                                let formattedText = data.analysis.replace(/\n/g, '<br>');
+                                formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                                formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+                                aiContent.innerHTML = formattedText;
+                            } else {
+                                aiContent.innerHTML = '❌ AI分析生成失败。备用分析：<br><br>' +
+                                    '基于当前数据，杭州未来三天天气变化较为平稳，温度适中。建议关注72小时内的降水过程。';
+                            }
+                        } catch (error) {
+                            console.error('AI分析请求失败:', error);
+                            aiContent.innerHTML = '⚠️ 网络连接异常，无法获取AI分析。<br>请检查网络后重试。';
+                        }
+                    }
+                </script>
+            </div>
+        </div>
+
+        <!-- 数据来源说明 -->
+        <div class="data-source">
+            <p>
+                数据来源: Open-Meteo API (集成ECMWF, GFS, GEM, ICON等全球数值预报模型) |
+                更新时间: {{ now }} |
+                <a href="/" style="color: #3498db;">返回首页</a>
+            </p>
+            <p style="font-size: 0.8em; margin-top: 5px;">
+                📢 提示：72小时内预报可信度较高，7天以上预报仅供参考，请关注最新预报更新
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 标签切换功能
+        function switchTab(tabName) {
+            // 隐藏所有标签内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // 移除所有标签按钮的active类
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 显示选中的标签内容
+            document.getElementById(tabName).classList.add('active');
+
+            // 激活对应的标签按钮
+            event.target.classList.add('active');
+
+            // 如果是模型对比标签，重新绘制图表（确保数据加载）
+            if (tabName === 'models') {
+                setTimeout(updateModelComparison, 100);
+            }
+        }
+    </script>
+</body>
+</html>

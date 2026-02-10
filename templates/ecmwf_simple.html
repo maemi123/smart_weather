@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>真实ECMWF数据 - 简化版</title>
+    <style>
+        body { font-family: Arial; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #667eea; }
+        .header h1 { color: #2c3e50; margin-bottom: 10px; }
+        .success-badge { display: inline-block; background: linear-gradient(135deg, #00b09b, #96c93d); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; }
+        .section { margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 15px; }
+        .grid-point { display: flex; justify-content: space-between; align-items: center; padding: 15px; margin: 10px 0; background: white; border-radius: 10px; border-left: 5px solid #e74c3c; }
+        .temp-value { font-size: 1.8em; font-weight: bold; color: #e74c3c; }
+        .location { font-weight: bold; color: #2c3e50; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 15px; }
+        .info-item { padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #3498db; }
+        .code-block { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 10px; font-family: monospace; margin: 15px 0; }
+        .btn { display: inline-block; padding: 10px 20px; margin: 5px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 真实ECMWF数据 - 简化版</h1>
+            <div class="success-badge">🎉 100%真实数据 - 从ECMWF直接下载</div>
+            <p>更新时间: {{ now }}</p>
+        </div>
+
+        <div class="section">
+            <h2>📊 数据信息</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">机构</div>
+                    <div>{{ info.institution }}</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">模式</div>
+                    <div>{{ info.model }}</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">数据时间</div>
+                    <div>{{ info.data_time[:10] }} {{ info.data_time[11:19] }}</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">格点数量</div>
+                    <div>{{ info.grid_size }} (共{{ temp_data|length }}个点)</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">纬度范围</div>
+                    <div>{{ info.lat_range }}</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">经度范围</div>
+                    <div>{{ info.lon_range }}</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">文件大小</div>
+                    <div>{{ info.file_size }} bytes</div>
+                </div>
+                <div class="info-item">
+                    <div style="font-weight: bold; color: #666;">数据变量</div>
+                    <div>{{ info.variables|join(', ') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🌡️ 2米温度数据</h2>
+            <p>从GRIB文件中提取的真实温度值（4个格点）</p>
+
+            {% for point in temp_data %}
+            <div class="grid-point">
+                <div>
+                    <div class="location">{{ point.location }}</div>
+                    <div style="color: #666; font-size: 0.9em;">
+                        精确坐标: {{ point.lat }}°N, {{ point.lon }}°E
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="temp-value">{{ point.temp_c }}°C</div>
+                    <div style="color: #999; font-size: 0.9em;">
+                        {{ point.temp_k }} K
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div style="margin-top: 20px; padding: 15px; background: #e8f4fc; border-radius: 10px;">
+                <p>💡 <strong>技术说明</strong>: 这是直接从ECMWF ERA5再分析数据集中提取的<b>真实格点温度</b>。</p>
+                <p>数据流: ECMWF API → GRIB下载 → xarray解析 → 单位转换(K→℃) → Web展示</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 技术实现</h2>
+
+            <p><strong>API调用代码</strong> (实际执行的):</p>
+            <div class="code-block">
+import cdsapi
+c = cdsapi.Client()
+c.retrieve(
+    'reanalysis-era5-single-levels',
+    {
+        'product_type': 'reanalysis',
+        'variable': '2m_temperature',
+        'year': '2024',
+        'month': '01',
+        'day': '01',
+        'time': '00:00',
+        'area': [31.2, 120.3, 30.8, 120.7],
+        'format': 'grib',  # 专业气象格式
+    },
+    'real_data.grib'
+)
+            </div>
+
+            <p><strong>数据读取代码</strong>:</p>
+            <div class="code-block">
+import xarray as xr
+ds = xr.open_dataset('real_data.grib', engine='cfgrib')
+
+# 获取2x2网格数据
+lats = ds.latitude.values  # [31.05, 30.8]
+lons = ds.longitude.values  # [120.3, 120.55]
+temps = ds['t2m'].values  # 2x2温度矩阵
+
+# K转℃
+temps_celsius = temps - 273.15
+            </div>
+
+            <p><strong>数据处理流程</strong>:</p>
+            <div style="display: flex; justify-content: space-between; margin: 15px 0;">
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">1️⃣</div>
+                    <div>API请求</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">→</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">2️⃣</div>
+                    <div>GRIB下载</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">→</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">3️⃣</div>
+                    <div>xarray解析</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">→</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2em;">4️⃣</div>
+                    <div>Web展示</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+            <a href="/" class="btn">🏠 返回首页</a>
+            <a href="/ecmwf" class="btn">🌍 ECMWF预报页面</a>
+            <a href="#" onclick="location.reload()" class="btn" style="background: #95a5a6;">🔄 刷新</a>
+        </div>
+    </div>
+</body>
+</html>

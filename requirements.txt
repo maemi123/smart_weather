@@ -1,0 +1,14 @@
+flask
+pandas
+numpy
+matplotlib
+plotly
+requests
+xarray
+cfgrib
+schedule
+tqdm
+cdsapi
+openmeteo_requests
+requests_cache
+retry_requests

@@ -1,0 +1,59 @@
+/* agro.css */
+/* 农业模块专用样式 */
+
+/* 1. 颜色编码系统 */
+:root {
+    --agro-green: #2ecc71;  /* 适宜/机会 */
+    --agro-yellow: #f1c40f; /* 提醒/注意 */
+    --agro-red: #e74c3c;    /* 预警/风险 */
+    --agro-blue: #3498db;   /* 信息/建议 */
+    --agro-bg: #f8f9fa;
+}
+
+/* 2. 智能提示中心 */
+.alert-center {
+    border-left: 5px solid var(--agro-red);
+    background-color: #fff;
+}
+
+/* 3. 作物仪表盘 */
+.list-group-item-action:hover {
+    background-color: #f0f9f0; /* 浅绿色悬停 */
+    transform: translateX(5px);
+    transition: all 0.2s ease;
+}
+
+/* 4. 农事日历 */
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+}
+.badge {
+    font-weight: normal;
+    padding: 0.5em 0.8em;
+}
+
+/* 5. 详情页组件 */
+.timeline {
+    position: relative;
+}
+.vr {
+    width: 2px;
+    background-color: #dee2e6;
+    margin: 0 auto;
+}
+
+/* AI 分析加载动画 */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .card-header {
+        font-size: 1rem;
+    }
+    .display-1 {
+        font-size: 3rem;
+    }
+}

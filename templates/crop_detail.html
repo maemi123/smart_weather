@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ crop.name }}详情 | 农业气象决策</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/agro.css') }}" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/agro-dashboard">
+            <i class="fas fa-chevron-left me-2"></i>返回总览
+        </a>
+        <span class="navbar-text text-white fw-bold">
+            {{ crop.icon }} {{ crop.name }}专题分析
+        </span>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <!-- 头部信息卡 -->
+    <div class="card shadow-sm mb-4 border-0 border-top border-5 border-success">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    <span class="display-1">{{ crop.icon }}</span>
+                </div>
+                <div class="col-md-7">
+                    <h2 class="mb-1">{{ crop.name }} <span class="badge bg-success fs-6 align-middle">{{ crop.category }}</span></h2>
+                    <p class="text-muted mb-2">当前阶段: <span class="fw-bold text-primary fs-5">{{ current_stage.name }}</span> ({{ current_stage.start }} ~ {{ current_stage.end }})</p>
+                    <div class="progress" style="height: 10px;">
+                        <!-- 简单模拟进度 -->
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 45%"></div>
+                    </div>
+                </div>
+                <div class="col-md-3 border-start">
+                    <div class="d-flex flex-column justify-content-center h-100 ps-3">
+                        <div class="mb-2"><i class="fas fa-thermometer-half me-2 text-danger"></i>最适温度: {{ current_stage.temp_opt }}℃</div>
+                        <div class="mb-2"><i class="fas fa-tint me-2 text-primary"></i>需水程度: 
+                            {% if current_stage.water_need == 'high' %}
+                                <span class="text-primary fw-bold">高</span>
+                            {% elif current_stage.water_need == 'medium' %}
+                                <span class="text-info fw-bold">中</span>
+                            {% else %}
+                                <span class="text-secondary fw-bold">低</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 左侧：AI 顾问 -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-robot text-primary me-2"></i>DeepSeek 农事顾问</h5>
+                    <button class="btn btn-sm btn-outline-primary" id="refreshAiBtn">
+                        <i class="fas fa-sync-alt me-1"></i>生成新建议
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="aiLoading" class="text-center py-5 d-none">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <p class="text-muted">正在分析气象数据，生成个性化建议...</p>
+                    </div>
+                    
+                    <div id="aiContent">
+                        <!-- 默认显示内容 -->
+                        <div class="alert alert-info border-0 bg-info-subtle">
+                            <h5 class="alert-heading"><i class="fas fa-lightbulb me-2"></i>今日核心建议</h5>
+                            <p id="aiSummary">点击右上角“生成新建议”获取最新分析。</p>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold border-bottom pb-2 text-success"><i class="fas fa-check-circle me-2"></i>推荐操作</h6>
+                                <ul class="list-group list-group-flush" id="aiOps">
+                                    <li class="list-group-item bg-transparent text-muted">暂无数据</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="fw-bold border-bottom pb-2 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>风险防范</h6>
+                                <ul class="list-group list-group-flush" id="aiRisks">
+                                    <li class="list-group-item bg-transparent text-muted">暂无数据</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 p-3 bg-light rounded border border-start border-4 border-warning">
+                            <strong><i class="fas fa-heart me-2 text-warning"></i>专家叮嘱：</strong>
+                            <span id="aiTips">暂无数据</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle text-danger me-2"></i>未来7天风险与提示</h5>
+                </div>
+                <div class="card-body">
+                    {% if alerts %}
+                        {% for alert in alerts %}
+                        <div class="alert alert-{{ 'danger' if alert.level=='high' else 'warning' if alert.level=='medium' else 'info' }} mb-2 p-2">
+                            <div class="d-flex justify-content-between">
+                                <small class="fw-bold">{{ alert.title }}</small>
+                                <small>{{ alert.date }}</small>
+                            </div>
+                            <div class="small mt-1">{{ alert.message }}</div>
+                            <div class="mt-1 pt-1 border-top border-secondary-subtle d-flex justify-content-between align-items-center">
+                                <small class="fw-bold text-decoration-underline" style="cursor:pointer">建议: {{ alert.action }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted">未来7天暂无明显风险提示。</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 生长指标图表 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line text-success me-2"></i>生长环境监测</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="envChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：风险阈值 -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white fw-bold">
+                    <i class="fas fa-shield-alt text-danger me-2"></i>本阶段关键风险阈值
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for key, risk in crop.risks.items() %}
+                        {% if current_stage.name in risk.stage or risk.stage[0] == "all" %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-danger">{{ risk.desc }}</h6>
+                            </div>
+                            <p class="mb-1 small">
+                                阈值: 
+                                {% if 'temp' in key or 'heat' in key or 'frost' in key or 'freeze' in key %}
+                                    {{ risk.threshold }}℃
+                                {% elif 'rain' in key or 'flood' in key %}
+                                    {{ risk.threshold }}mm
+                                {% else %}
+                                    {{ risk.threshold }}
+                                {% endif %}
+                            </p>
+                            <small class="text-muted">如触达此阈值，请立即采取措施。</small>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    <!-- 如果本阶段无特定风险 -->
+                    <div class="list-group-item text-muted small fst-italic">
+                        *仅显示当前生长阶段相关的风险指标
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">
+                    <i class="fas fa-book text-info me-2"></i>全周期概览
+                </div>
+                <div class="card-body p-0">
+                    <div class="timeline p-3">
+                        {% for stage in crop.stages %}
+                        <div class="d-flex mb-3 {{ 'opacity-50' if stage.name != current_stage.name }}">
+                            <div class="me-3 text-center" style="width: 60px;">
+                                <small class="d-block fw-bold">{{ stage.start }}</small>
+                                <div class="vr h-100 mt-1"></div>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 {{ 'text-primary fw-bold' if stage.name == current_stage.name }}">{{ stage.name }}</h6>
+                                <small class="text-muted">适温: {{ stage.temp_opt }}℃</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏数据用于 JS -->
+<input type="hidden" id="cropName" value="{{ crop.name }}">
+<input type="hidden" id="cropStage" value="{{ current_stage.name if current_stage else '休眠' }}">
+<script type="application/json" id="agroContext">{{ {'forecast': forecast, 'alerts': alerts}|tojson }}</script>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/agro_dashboard.js') }}"></script>
+<script>
+    // 页面特定的初始化逻辑
+    document.addEventListener('DOMContentLoaded', function() {
+        // 自动触发一次AI建议
+        document.getElementById('refreshAiBtn').click();
+        
+        // 渲染简单的图表
+        const agroContextEl = document.getElementById('agroContext');
+        let forecast = [];
+        if (agroContextEl && agroContextEl.textContent) {
+            try {
+                const ctx = JSON.parse(agroContextEl.textContent);
+                forecast = Array.isArray(ctx.forecast) ? ctx.forecast : [];
+            } catch (e) {
+                forecast = [];
+            }
+        }
+
+        const labels = forecast.length ? forecast.map(d => (d.date || '').slice(5)) : ['5-20', '5-21', '5-22', '5-23', '5-24', '5-25', '5-26'];
+        const avgTemps = forecast.length ? forecast.map(d => d.temp_avg) : [18, 19, 21, 20, 22, 23, 22];
+        const optTemp = {{ current_stage.temp_opt if current_stage else 0 }};
+        const optLine = labels.map(() => optTemp);
+
+        const ctx = document.getElementById('envChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '日平均气温(℃)',
+                    data: avgTemps,
+                    borderColor: '#2ecc71',
+                    tension: 0.4
+                }, {
+                    label: '适宜温度上限',
+                    data: optLine,
+                    borderColor: '#e74c3c',
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>

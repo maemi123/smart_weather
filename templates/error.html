@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>错误</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        .error-box { background: #ffeaa7; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .code { background: #2c3e50; color: white; padding: 15px; border-radius: 5px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>❌ 错误</h1>
+    <div class="error-box">
+        <h2>{{ message }}</h2>
+        {% if details %}
+        <p>详情:</p>
+        <div class="code">{{ details }}</div>
+        {% endif %}
+    </div>
+    <a href="/">返回首页</a>
+</body>
+</html>

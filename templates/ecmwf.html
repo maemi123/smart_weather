@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ECMWF数据展示</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .nav { margin-bottom: 30px; padding-bottom: 15px; border-bottom: 2px solid #3498db; }
+        .nav a { margin-right: 20px; text-decoration: none; color: #3498db; font-weight: bold; padding: 8px 15px; border-radius: 5px; }
+        .nav a:hover { background-color: #3498db; color: white; }
+        .section { margin: 30px 0; padding: 25px; border: 1px solid #e0e0e0; border-radius: 10px; }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #2980b9; margin-top: 0; }
+        .warning { background: linear-gradient(135deg, #ffeaa7, #fab1a0); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #e74c3c; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .data-table th { background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 15px; text-align: center; }
+        .data-table td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; }
+        .data-table tr:hover { background-color: #f8f9fa; }
+        .status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-sim { background-color: #ffeaa7; color: #d35400; }
+        .status-real { background-color: #55efc4; color: #00b894; }
+        .step-box { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 15px 0; }
+        .step-box h3 { margin-top: 0; color: #2c3e50; }
+        .tech-badge { display: inline-block; background: #2c3e50; color: white; padding: 5px 10px; border-radius: 5px; margin: 5px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">🏠 首页</a>
+            <a href="/ecmwf" style="background-color: #3498db; color: white;">🌍 ECMWF数据</a>
+        </div>
+
+        <h1>🌍 ECMWF数值预报数据接入系统</h1>
+
+        <div class="warning" style="{% if has_real_data %}background: linear-gradient(135deg, #55efc4, #00b894); border-left: 5px solid #00b894;{% endif %}">
+            <h2>
+                {% if has_real_data %}
+                ✅ 当前状态：真实数据模式
+                {% else %}
+                ⚠️ 当前状态：模拟数据模式
+                {% endif %}
+            </h2>
+
+            {% if has_real_data %}
+            <p style="color: #004d40; font-weight: bold;">
+                🎉 恭喜！系统已成功连接到ECMWF API，正在展示真实的ERA5再分析数据！
+            </p>
+            <p>数据来源：ECMWF ERA5 reanalysis | 更新时间：{{ now }}</p>
+            {% else %}
+            <p>系统正在使用模拟的ECMWF格式数据进行展示。要获取真实数据：</p>
+            <ol>
+                <li>检查 <code>~/.cdsapirc</code> 配置文件格式</li>
+                <li>确保API密钥有效：<code>数字:随机字符串</code></li>
+                <li>检查网络连接</li>
+            </ol>
+            <p><strong>更新时间：</strong> {{ now }}</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>📊 ECMWF预报数据（杭州）</h2>
+            <div style="margin-bottom: 20px;">
+                <span class="status status-sim">模拟数据模式</span>
+                <span style="margin-left: 20px; color: #666;">数据格式与真实ECMWF GRIB数据完全一致</span>
+            </div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>预报时效</th>
+                        <th>时间</th>
+                        <th>2米温度 (°C)</th>
+                        <th>数据状态</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if ecmwf_data %}
+                        {% for row in ecmwf_data %}
+                        <tr>
+                            <td><strong>{{ row.forecast_hour }}</strong></td>
+                            <td>{{ row.time }}</td>
+                            <td style="font-weight: bold; color: #e74c3c;">{{ row.temperature }}</td>
+                            <td><span class="status status-sim">模拟</span></td>
+                            <td>{{ row.data_source }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px; color: #999;">
+                                <p>数据加载中...</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>🛠️ 技术实现说明</h2>
+            <p>本模块已经完整实现了ECMWF数据处理的技术链路：</p>
+
+            <div class="step-box">
+                <h3>步骤1: 数据获取</h3>
+                <p>使用 <span class="tech-badge">CDS API</span> 从ECMWF下载GRIB格式数据</p>
+                <code>client.retrieve('reanalysis-era5-single-levels', {...})</code>
+            </div>
+
+            <div class="step-box">
+                <h3>步骤2: 数据解析</h3>
+                <p>使用 <span class="tech-badge">xarray</span> + <span class="tech-badge">cfgrib</span> 解析GRIB文件</p>
+                <code>ds = xr.open_dataset(filepath, engine='cfgrib')</code>
+            </div>
+
+            <div class="step-box">
+                <h3>步骤3: 数据提取</h3>
+                <p>提取杭州区域（30.25°N, 120.17°E）的格点数据</p>
+                <code>var_data.isel(latitude=..., longitude=...)</code>
+            </div>
+
+            <div class="step-box">
+                <h3>步骤4: 单位转换与展示</h3>
+                <p>温度：开尔文(K) → 摄氏度(℃)</p>
+                <code>temp_celsius = temp_kelvin - 273.15</code>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 系统状态</h2>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                <div style="padding: 15px; background: #e8f4fc; border-radius: 8px;">
+                    <h3 style="margin-top: 0;">🌐 API连接</h3>
+                    {% if api_connected %}
+                    <span style="color: #27ae60; font-weight: bold;">✅ 已连接</span>
+                    {% else %}
+                    <span style="color: #e74c3c; font-weight: bold;">⚠️ 模拟模式</span>
+                    <p style="font-size: 12px; margin-top: 5px;">使用模拟数据进行演示</p>
+                    {% endif %}
+                </div>
+
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h3 style="margin-top: 0;">📊 数据源</h3>
+                    {% if data_source_type == "demo_real" %}
+                    <span style="color: #27ae60; font-weight: bold;">🌍 真实数据</span>
+                    <p style="font-size: 12px; margin-top: 5px;">ECMWF ERA5再分析</p>
+                    {% else %}
+                    <span style="color: #f39c12; font-weight: bold;">🧪 模拟数据</span>
+                    <p style="font-size: 12px; margin-top: 5px;">格式与真实数据一致</p>
+                    {% endif %}
+                </div>
+
+                <div style="padding: 15px; background: #fef9e7; border-radius: 8px;">
+                    <h3 style="margin-top: 0;">⚡ 技术就绪</h3>
+                    <span style="color: #27ae60; font-weight: bold;">✅ 100%</span>
+                    <p style="font-size: 12px; margin-top: 5px;">
+                        GRIB解析 ✓<br>
+                        ️xarray处理 ✓<br>
+                        API框架 ✓
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📈 下一步计划</h2>
+            <ul>
+                <li><input type="checkbox" checked> 搭建ECMWF数据处理框架</li>
+                <li><input type="checkbox"> 配置真实ECMWF API密钥</li>
+                <li><input type="checkbox"> 下载真实ERA5历史数据</li>
+                <li><input type="checkbox"> 下载HRES高分辨率预报数据</li>
+                <li><input type="checkbox"> 与心知天气数据进行对比分析</li>
+                <li><input type="checkbox"> 添加ECMWF数据可视化（等高线图、填色图）</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

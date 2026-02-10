@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>杭州年度气候分析报告 - {{ year }}</title>
+    <!-- 引入Bootstrap -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入FontAwesome -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- 引入自定义样式 -->
+    <link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
+</head>
+<body>
+
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-cloud-sun me-2"></i>智能天气系统
+        </a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">实时天气</a></li>
+                <li class="nav-item"><a class="nav-link" href="/forecast">智能预报</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/history/yearly">历史分析</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- 页面头部 -->
+<header class="page-header text-center">
+    <div class="container">
+        <h1 class="page-title">📍 杭州年度气候分析报告 - {{ year }}年</h1>
+        <p class="page-subtitle">基于RP5高质量历史观测数据 | 对比基准：1981-2010气候态</p>
+    </div>
+</header>
+
+<div class="container pb-5">
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <div class="control-group">
+            <label class="fw-bold"><i class="far fa-calendar-alt me-2"></i>分析年份：</label>
+            <select class="form-select" id="yearSelector" onchange="updateDashboard()">
+                {% for y in available_years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="control-group">
+            <label class="fw-bold"><i class="fas fa-balance-scale me-2"></i>对比基准：</label>
+            <select class="form-select" id="climateSelector" onchange="updateDashboard()">
+                <option value="8110" {% if climatology_period == '8110' %}selected{% endif %}>1981-2010 气候态</option>
+                <option value="9120" {% if climatology_period == '9120' %}selected{% endif %}>1991-2020 气候态</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <span class="text-muted"><i class="fas fa-info-circle me-1"></i>数据来源：杭州国家基准气候站 (58457)</span>
+        </div>
+    </div>
+
+    <!-- 第一部分：年度气候概览 -->
+    <h3 class="chart-title"><i class="fas fa-chart-pie me-2"></i>年度气候概览 (vs {{ '1981-2010' if climatology_period == '8110' else '1991-2020' }})</h3>
+    <div class="row g-4 mb-5">
+        <!-- 温度卡片 -->
+        <div class="col-md-3">
+            <div class="overview-card temp">
+                <div class="card-icon text-danger"><i class="fas fa-thermometer-half"></i></div>
+                <div class="metric-value">{{ stats.avg_temp }}°C</div>
+                <div class="metric-label">年平均气温</div>
+                <div class="metric-change {% if comparison.avg_temp.trend == '↑' %}positive{% else %}negative{% endif %}">
+                    {{ comparison.avg_temp.trend }}{{ comparison.avg_temp.diff }}°C ({{ comparison.avg_temp.percent }}%)
+                </div>
+            </div>
+        </div>
+        <!-- 降水卡片 -->
+        <div class="col-md-3">
+            <div class="overview-card precip">
+                <div class="card-icon text-primary"><i class="fas fa-tint"></i></div>
+                <div class="metric-value">{{ stats.total_precip }}mm</div>
+                <div class="metric-label">年降水量</div>
+                <div class="metric-change {% if comparison.total_precip.trend == '↑' %}positive{% else %}negative{% endif %}">
+                    {{ comparison.total_precip.trend }}{{ comparison.total_precip.diff }}mm ({{ comparison.total_precip.percent }}%)
+                </div>
+            </div>
+        </div>
+        <!-- 积雪卡片 -> 降雪卡片 -->
+        <div class="col-md-3">
+            <div class="overview-card wind">
+                <div class="card-icon text-info"><i class="far fa-snowflake"></i></div>
+                <div class="metric-value">{{ stats.snow_days }}天</div>
+                <div class="metric-label">降雪日数</div>
+                <div class="metric-change {% if comparison.snow_days.trend == '↑' %}positive{% else %}negative{% endif %}">
+                    {{ comparison.snow_days.trend }}{{ comparison.snow_days.diff }}天
+                </div>
+            </div>
+        </div>
+        <!-- 暴雨卡片 -->
+        <div class="col-md-3">
+            <div class="overview-card sun">
+                <div class="card-icon text-warning"><i class="fas fa-bolt"></i></div>
+                <div class="metric-value">{{ stats.heavy_rain_days }}天</div>
+                <div class="metric-label">暴雨日数</div>
+                <div class="text-muted mt-2 small">单日降水>50mm</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第二部分：详细分析标签页 -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <ul class="nav nav-tabs nav-tabs-custom" id="analysisTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly" type="button" role="tab">
+                        <i class="fas fa-chart-bar me-2"></i>月度对比分析
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="temp-tab" data-bs-toggle="tab" data-bs-target="#temp" type="button" role="tab">
+                        <i class="fas fa-temperature-high me-2"></i>温度分布特征
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="wind-tab" data-bs-toggle="tab" data-bs-target="#wind" type="button" role="tab">
+                        <i class="fas fa-wind me-2"></i>风况分析
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="analysisTabContent">
+                <!-- 标签页1：月度对比 -->
+                <div class="tab-pane fade show active" id="monthly" role="tabpanel">
+                    <div class="chart-container">
+                        {% if charts.monthly_comparison %}
+                            <iframe src="{{ url_for('static', filename='charts/monthly_comparison.html') }}" width="100%" height="450" frameborder="0"></iframe>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">暂无图表数据</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 标签页2：温度分布 -->
+                <div class="tab-pane fade" id="temp" role="tabpanel">
+                    <div class="chart-container">
+                        {% if charts.temp_distribution %}
+                            <iframe src="{{ url_for('static', filename='charts/temp_distribution.html') }}" width="100%" height="400" frameborder="0"></iframe>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">暂无图表数据</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 标签页3：风况分析 -->
+                <div class="tab-pane fade" id="wind" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="chart-container position-relative">
+                                <!-- 月份选择器 -->
+                                <div class="position-absolute top-0 end-0 m-3 z-3">
+                                    <select class="form-select form-select-sm" id="windMonthSelector" onchange="updateWindChart()" style="width: auto;">
+                                        <option value="">全年</option>
+                                        {% for m in range(1, 13) %}
+                                        <option value="{{ m }}">{{ m }}月</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                {% if charts.wind_rose %}
+                                    <iframe id="windChartFrame" src="{{ url_for('static', filename='charts/wind_rose.html') }}" width="100%" height="450" frameborder="0"></iframe>
+                                {% else %}
+                                    <div class="text-center py-5 text-muted">暂无风向数据</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="overview-card">
+                                <h5><i class="fas fa-flag me-2"></i>年度风况摘要</h5>
+                                <hr>
+                                <ul class="list-unstyled mt-3">
+                                    <li class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <span>年平均风速</span>
+                                            <span class="fw-bold">{{ stats.avg_wind_speed|default('N/A') }} m/s</span>
+                                        </div>
+                                    </li>
+                                    <li class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <span>最大阵风</span>
+                                            <span class="fw-bold text-danger">{{ stats.max_wind_gust|default('N/A') }} m/s</span>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <small class="text-muted">风玫瑰图展示了风向频率和风速强度的分布。颜色越亮表示风速越大，花瓣越长表示该风向频率越高。</small>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第三部分：极端事件与舒适度 -->
+    <div class="row">
+        <!-- 极端事件表格 -->
+        <div class="col-md-7">
+            <div class="chart-container h-100">
+                <h4 class="chart-title"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>{{ year }}年 Top 5 极端天气事件</h4>
+                <div class="table-responsive">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>事件类型</th>
+                                <th>发生时间</th>
+                                <th>关键指标</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for event in extremes[:5] %}
+                            <tr>
+                                <td>{{ event.rank }}</td>
+                                <td>
+                                    {% if '高温' in event.type %}
+                                        <span class="event-badge badge-heat">{{ event.type }}</span>
+                                    {% elif '低温' in event.type %}
+                                        <span class="event-badge badge-cold">{{ event.type }}</span>
+                                    {% elif '雨' in event.type %}
+                                        <span class="event-badge badge-rain">{{ event.type }}</span>
+                                    {% elif '风' in event.type %}
+                                        <span class="event-badge badge-wind">{{ event.type }}</span>
+                                    {% else %}
+                                        <span class="event-badge bg-secondary text-white">{{ event.type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ event.date }}</td>
+                                <td class="fw-bold">{{ event.value }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if not extremes %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">本年度无显著极端事件记录</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 舒适度与总结 -->
+        <div class="col-md-5">
+            <div class="chart-container mb-4">
+                <h4 class="chart-title"><i class="fas fa-smile me-2 text-success"></i>人体舒适度分析</h4>
+                <div class="d-flex justify-content-around text-center mt-4">
+                    <div>
+                        <div class="display-4 text-success fw-bold">{{ comfort.counts.comfortable }}</div>
+                        <div class="text-muted">舒适天数</div>
+                    </div>
+                    <div>
+                        <div class="display-4 text-warning fw-bold">{{ comfort.counts.hot }}</div>
+                        <div class="text-muted">炎热天数</div>
+                    </div>
+                    <div>
+                        <div class="display-4 text-info fw-bold">{{ comfort.counts.cold }}</div>
+                        <div class="text-muted">寒冷天数</div>
+                    </div>
+                </div>
+                <div class="progress mt-4" style="height: 10px;">
+                    {% set total = comfort.total_days %}
+                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ comfort.counts.cold / total * 100 }}%"></div>
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ comfort.counts.comfortable / total * 100 }}%"></div>
+                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ comfort.counts.hot / total * 100 }}%"></div>
+                </div>
+            </div>
+
+            <!-- AI 分析 -->
+            <div class="ai-analysis-box">
+                <div class="d-flex align-items-start">
+                    <div class="ai-icon me-3"><i class="fas fa-robot"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-3">AI 气候洞察</h5>
+                        <div class="ai-content">
+                            {{ ai_report | safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 页脚 -->
+<footer class="bg-dark text-white py-4 mt-5">
+    <div class="container text-center">
+        <p class="mb-0">&copy; 2024 智能天气分析系统 | Powered by Flask & Plotly</p>
+    </div>
+</footer>
+
+<!-- 引入Bootstrap JS -->
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    function updateDashboard() {
+        const year = document.getElementById('yearSelector').value;
+        const climate = document.getElementById('climateSelector').value;
+        window.location.href = `/history/yearly/${year}?climatology=${climate}`;
+    }
+    
+    function updateWindChart() {
+        const month = document.getElementById('windMonthSelector').value;
+        const year = document.getElementById('yearSelector').value;
+        const iframe = document.getElementById('windChartFrame');
+        
+        // 调用后端API获取新图表路径
+        fetch(`/api/wind_rose?year=${year}&month=${month}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.url) {
+                    iframe.src = data.url;
+                } else {
+                    alert('该月无风向数据');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+</script>
+
+</body>
+</html>

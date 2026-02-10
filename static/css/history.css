@@ -1,0 +1,260 @@
+/* history.css - 历史气候分析模块专用样式 */
+
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2c3e50;
+    --success-color: #2ecc71;
+    --warning-color: #f1c40f;
+    --danger-color: #e74c3c;
+    --light-bg: #f8f9fa;
+    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+body {
+    background-color: #f4f7f6;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    color: #333;
+}
+
+/* 页面头部 */
+.page-header {
+    background: linear-gradient(135deg, #2c3e50, #3498db);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+    opacity: 0.9;
+    font-size: 1rem;
+}
+
+/* 控制面板 */
+.control-panel {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    padding: 0.5rem 2rem 0.5rem 1rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border: none;
+    padding: 0.6rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+/* 概览卡片 */
+.overview-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    height: 100%;
+    transition: transform 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.overview-card:hover {
+    transform: translateY(-5px);
+}
+
+.overview-card.temp { border-left-color: #e74c3c; }
+.overview-card.precip { border-left-color: #3498db; }
+.overview-card.wind { border-left-color: #2ecc71; }
+.overview-card.sun { border-left-color: #f1c40f; }
+
+.card-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    opacity: 0.8;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    margin-bottom: 0.5rem;
+}
+
+.metric-label {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.metric-change {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+.metric-change.positive { color: #e74c3c; background: rgba(231, 76, 60, 0.1); }
+.metric-change.negative { color: #3498db; background: rgba(52, 152, 219, 0.1); }
+
+/* 图表容器 */
+.chart-container {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 2rem;
+    min-height: 400px;
+}
+
+.chart-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    margin-bottom: 1.5rem;
+    border-left: 4px solid var(--primary-color);
+    padding-left: 1rem;
+}
+
+/* 极端事件表格 */
+.table-custom {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+}
+
+.table-custom th {
+    background: transparent;
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 1rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.table-custom td {
+    background: white;
+    padding: 1rem;
+    vertical-align: middle;
+    border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table-custom tr td:first-child {
+    border-left: 1px solid #e9ecef;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.table-custom tr td:last-child {
+    border-right: 1px solid #e9ecef;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.event-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badge-heat { background: #ffeaa7; color: #d35400; }
+.badge-cold { background: #74b9ff; color: #0984e3; }
+.badge-rain { background: #a29bfe; color: #6c5ce7; }
+.badge-wind { background: #55efc4; color: #00b894; }
+
+/* AI 分析区块 */
+.ai-analysis-box {
+    background: linear-gradient(to right, #ffffff, #f8f9fa);
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-icon {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.ai-content {
+    line-height: 1.8;
+    color: #444;
+    font-size: 1.05rem;
+}
+
+.ai-content p {
+    margin-bottom: 1rem;
+}
+
+/* 标签页样式 */
+.nav-tabs-custom {
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 2rem;
+}
+
+.nav-tabs-custom .nav-link {
+    border: none;
+    color: #7f8c8d;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.nav-tabs-custom .nav-link:hover {
+    color: var(--primary-color);
+}
+
+.nav-tabs-custom .nav-link.active {
+    color: var(--primary-color);
+    background: transparent;
+}
+
+.nav-tabs-custom .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--primary-color);
+}

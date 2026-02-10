@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>真实ECMWF数据</title>
+    <style>
+        body { font-family: Arial; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #3498db; }
+        .success { background: #00b09b; color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center; font-weight: bold; }
+        .section { margin: 25px 0; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
+        .data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+        .data-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db; }
+        .temp-item { display: flex; justify-content: space-between; padding: 15px; margin: 10px 0; background: #fff; border-radius: 8px; border-left: 4px solid #e74c3c; }
+        .temp-value { font-size: 1.5em; font-weight: bold; color: #e74c3c; }
+        .nav { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
+        .btn { display: inline-block; padding: 10px 20px; margin-right: 10px; background: #3498db; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 真实ECMWF数据展示</h1>
+            <p>下载时间: {{ download_time }}</p>
+        </div>
+
+        <div class="success">
+            🎉 恭喜！这是从ECMWF下载的真实气象数据文件
+        </div>
+
+        <div class="section">
+            <h2>📁 文件信息</h2>
+            <div class="data-grid">
+                <div class="data-card">
+                    <h3>文件大小</h3>
+                    <div style="font-size: 1.5em; font-weight: bold;">{{ data_info.file_size }}</div>
+                    <p>GRIB格式</p>
+                </div>
+                <div class="data-card">
+                    <h3>数据时间</h3>
+                    <div style="font-size: 1.2em;">{{ data_info.data_time[:30] }}</div>
+                </div>
+                <div class="data-card">
+                    <h3>变量数量</h3>
+                    <div style="font-size: 1.5em; font-weight: bold;">{{ data_info.variables|length }}</div>
+                    <p>{{ data_info.variables|join(', ') }}</p>
+                </div>
+            </div>
+        </div>
+
+        {% if temperature_data %}
+        <div class="section">
+            <h2>🌡️ 温度数据</h2>
+            <p>直接从GRIB文件中提取的真实温度值（K → °C）</p>
+
+            {% for point in temperature_data %}
+            <div class="temp-item">
+                <div>
+                    <div style="font-weight: bold;">{{ point.grid_point }}</div>
+                    <div style="color: #666; font-size: 0.9em;">
+                        纬度: {{ point.latitude }} | 经度: {{ point.longitude }}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="temp-value">{{ point.temperature_c }}°C</div>
+                    <div style="color: #999; font-size: 0.9em;">
+                        {{ point.temperature_k }} K
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div style="margin-top: 15px; padding: 15px; background: #e8f4fc; border-radius: 8px;">
+                <p>💡 <strong>技术成就</strong>: 这是通过ECMWF API获取的真实GRIB数据，使用xarray专业库解析。</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="section">
+            <h2>🔧 技术详情</h2>
+
+            <h3>变量信息</h3>
+            <div class="data-grid">
+                {% for var_name, info in variable_info.items() %}
+                <div class="data-card">
+                    <h3>{{ var_name }}</h3>
+                    <div>{{ info.long_name }}</div>
+                    <div style="margin: 10px 0;">
+                        <span style="background: #2c3e50; color: white; padding: 3px 8px; border-radius: 4px;">
+                            单位: {{ info.units }}
+                        </span>
+                    </div>
+                    <div>形状: {{ info.shape }}</div>
+                    <div style="font-size: 0.9em; color: #666;">维度: {{ info.dims }}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <h3>API调用流程</h3>
+            <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 8px; font-family: monospace;">
+                # 成功执行的代码<br>
+                import cdsapi<br>
+                c = cdsapi.Client()<br>
+                c.retrieve('reanalysis-era5-single-levels', {<br>
+                &nbsp;&nbsp;'product_type': 'reanalysis',<br>
+                &nbsp;&nbsp;'variable': '2m_temperature',<br>
+                &nbsp;&nbsp;'area': [31.2, 120.3, 30.8, 120.7],<br>
+                &nbsp;&nbsp;'format': 'grib'<br>
+                }, 'real_data.grib')
+            </div>
+        </div>
+
+        <div class="nav">
+            <a href="/" class="btn">🏠 返回首页</a>
+            <a href="/ecmwf" class="btn">🌍 ECMWF预报</a>
+            <a href="#" onclick="location.reload()" class="btn" style="background: #95a5a6;">🔄 刷新</a>
+        </div>
+    </div>
+</body>
+</html>

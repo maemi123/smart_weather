@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>杭州气候变化趋势分析 ({{ start_year }}-{{ end_year }})</title>
+    <!-- 引入Bootstrap -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入FontAwesome -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- 引入Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- 引入自定义样式 -->
+    <link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
+</head>
+<body>
+
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-cloud-sun me-2"></i>智能天气系统
+        </a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">实时天气</a></li>
+                <li class="nav-item"><a class="nav-link" href="/forecast">智能预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/history/yearly">历史分析</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/history/trend">趋势分析</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- 页面头部 -->
+<header class="page-header text-center" style="background: linear-gradient(135deg, #2c3e50, #8e44ad);">
+    <div class="container">
+        <h1 class="page-title">📈 杭州气候变化趋势分析 [{{ start_year }}-{{ end_year }}]</h1>
+        <p class="page-subtitle">探索长期气候演变规律与极端事件趋势</p>
+    </div>
+</header>
+
+<div class="container pb-5">
+
+    <!-- 1. 气温趋势板块 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-danger"><i class="fas fa-temperature-high me-2"></i>气候变暖趋势</h5>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center mb-3">
+                <div class="col-md-8">
+                    <p class="lead mb-0">
+                        近{{ end_year - start_year + 1 }}年气温变化率：
+                        <span class="fw-bold {% if temp_data['rate'] > 0 %}text-danger{% else %}text-primary{% endif %}">
+                            {{ '+' if temp_data['rate'] > 0 else '' }}{{ temp_data['rate'] }}°C / 10年
+                        </span>
+                    </p>
+                </div>
+            </div>
+            <div id="tempTrendChart" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <!-- 2. 降水趋势板块 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-primary"><i class="fas fa-cloud-rain me-2"></i>降水变化特征</h5>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center mb-3">
+                <div class="col-md-8">
+                    <p class="lead mb-0">
+                        降水变化趋势：
+                        <span class="fw-bold {% if precip_data['rate'] > 0 %}text-success{% else %}text-warning{% endif %}">
+                            {{ '+' if precip_data['rate'] > 0 else '' }}{{ precip_data['rate'] }}mm / 10年
+                        </span>
+                    </p>
+                </div>
+            </div>
+            <div id="precipTrendChart" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <!-- 3. 极端天气板块 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-warning"><i class="fas fa-bolt me-2"></i>极端天气频次</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">统计定义：高温日(Tmax≥35°C)，低温日(Tmin≤0°C)，降雪日(出现降雪)</p>
+            <div id="extremeTrendChart" style="height: 400px;"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 页脚 -->
+<footer class="bg-dark text-white py-4 mt-5">
+    <div class="container text-center">
+        <p class="mb-0">&copy; 2024 智能天气分析系统 | Powered by Flask & Plotly</p>
+    </div>
+</footer>
+
+<!-- 引入Bootstrap JS -->
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // 1. 气温趋势图
+    const tempTrace = {
+        x: {{ temp_data['years'] | tojson }},
+        y: {{ temp_data['values'] | tojson }},
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '年平均气温',
+        line: {color: '#e74c3c', width: 3},
+        marker: {size: 8}
+    };
+
+    const tempTrendLine = {
+        x: {{ temp_data['years'] | tojson }},
+        y: {{ temp_data['trend_line'] | tojson }},
+        type: 'scatter',
+        mode: 'lines',
+        name: '线性趋势',
+        line: {color: '#333', width: 2, dash: 'dash'}
+    };
+
+    Plotly.newPlot('tempTrendChart', [tempTrace, tempTrendLine], {
+        title: '年平均气温变化趋势',
+        xaxis: {title: '年份'},
+        yaxis: {title: '温度 (°C)'},
+        hovermode: 'x unified'
+    });
+
+    // 2. 降水趋势图
+    const precipBar = {
+        x: {{ precip_data['years'] | tojson }},
+        y: {{ precip_data['values'] | tojson }},
+        type: 'bar',
+        name: '年降水量',
+        marker: {color: '#3498db', opacity: 0.7}
+    };
+
+    const rainyDaysLine = {
+        x: {{ precip_data['years'] | tojson }},
+        y: {{ precip_data['rainy_days'] | tojson }},
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '雨日数',
+        yaxis: 'y2',
+        line: {color: '#2980b9', width: 2}
+    };
+
+    Plotly.newPlot('precipTrendChart', [precipBar, rainyDaysLine], {
+        title: '年降水量与雨日数变化',
+        xaxis: {title: '年份'},
+        yaxis: {title: '降水量 (mm)'},
+        yaxis2: {
+            title: '雨日数 (天)',
+            overlaying: 'y',
+            side: 'right'
+        },
+        hovermode: 'x unified'
+    });
+
+    // 3. 极端天气图
+    const hotTrace = {
+        x: {{ extreme_data['years'] | tojson }},
+        y: {{ extreme_data['hot_days'] | tojson }},
+        type: 'bar',
+        name: '高温日数',
+        marker: {color: '#e67e22'}
+    };
+
+    const coldTrace = {
+        x: {{ extreme_data['years'] | tojson }},
+        y: {{ extreme_data['cold_days'] | tojson }},
+        type: 'bar',
+        name: '低温日数',
+        marker: {color: '#3498db'}
+    };
+    
+    const snowTrace = {
+        x: {{ extreme_data['years'] | tojson }},
+        y: {{ extreme_data['snow_days'] | tojson }},
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '降雪日数',
+        line: {color: '#95a5a6', width: 2}
+    };
+
+    Plotly.newPlot('extremeTrendChart', [hotTrace, coldTrace, snowTrace], {
+        title: '极端天气日数统计',
+        barmode: 'group',
+        xaxis: {title: '年份'},
+        yaxis: {title: '天数'},
+        hovermode: 'x unified'
+    });
+</script>
+
+</body>
+</html>
