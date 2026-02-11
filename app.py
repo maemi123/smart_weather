@@ -1081,6 +1081,10 @@ def build_agro_forecast_list(multi_model: Dict, forecast_days: int = 7) -> List[
         humidities = hourly_data.get('relative_humidity_2m', [])
         winds = hourly_data.get('wind_speed_10m', [])
 
+        et0s = hourly_data.get('et0_fao_evapotranspiration', [])
+        soil_moistures = hourly_data.get('soil_moisture_0_to_7cm', [])
+        radiations = hourly_data.get('shortwave_radiation', [])
+
         daily_map = {}
         min_len = min(len(timestamps), len(temps), len(precips))
 
@@ -1088,7 +1092,10 @@ def build_agro_forecast_list(multi_model: Dict, forecast_days: int = 7) -> List[
             ts = timestamps[i]
             date_str = ts.split(' ')[0]
             if date_str not in daily_map:
-                daily_map[date_str] = {'temps': [], 'precip': 0.0, 'humidity': [], 'wind': []}
+                daily_map[date_str] = {
+                    'temps': [], 'precip': 0.0, 'humidity': [], 'wind': [], 
+                    'et0': 0.0, 'soil_moisture': [], 'radiation': []
+                }
             if temps[i] is not None:
                 daily_map[date_str]['temps'].append(temps[i])
             if precips[i] is not None:
@@ -1097,6 +1104,12 @@ def build_agro_forecast_list(multi_model: Dict, forecast_days: int = 7) -> List[
                 daily_map[date_str]['humidity'].append(humidities[i])
             if i < len(winds) and winds[i] is not None:
                 daily_map[date_str]['wind'].append(winds[i])
+            if i < len(et0s) and et0s[i] is not None:
+                daily_map[date_str]['et0'] += et0s[i]
+            if i < len(soil_moistures) and soil_moistures[i] is not None:
+                daily_map[date_str]['soil_moisture'].append(soil_moistures[i])
+            if i < len(radiations) and radiations[i] is not None:
+                daily_map[date_str]['radiation'].append(radiations[i])
 
         for date_str in sorted(daily_map.keys()):
             data = daily_map[date_str]
@@ -1104,15 +1117,27 @@ def build_agro_forecast_list(multi_model: Dict, forecast_days: int = 7) -> List[
                 continue
             humidity_avg = sum(data['humidity']) / len(data['humidity']) if data['humidity'] else 70
             wind_avg = sum(data['wind']) / len(data['wind']) if data['wind'] else 3
+            soil_moisture_avg = sum(data['soil_moisture']) / len(data['soil_moisture']) if data['soil_moisture'] else 0
+            radiation_avg = sum(data['radiation']) / len(data['radiation']) if data['radiation'] else 0
+            
+            # 计算有效降水 (降水 - ET0，可为负)
+            precip = data['precip']
+            et0 = data['et0'] or 0
+            precip_eff = (precip - et0) if precip is not None else 0
+            
             forecast_list.append({
                 'date': date_str,
                 'temp_min': round(min(data['temps']), 1),
                 'temp_max': round(max(data['temps']), 1),
                 'temp_avg': round(sum(data['temps']) / len(data['temps']), 1),
-                'precip': round(data['precip'], 1),
+                'precip': round(precip, 1),
+                'et0': round(et0, 1),
+                'precip_eff': round(precip_eff, 1),
                 'wind': round(wind_avg, 1),
                 'wind_speed': round(wind_avg, 1),
-                'humidity': round(humidity_avg, 0)
+                'humidity': round(humidity_avg, 0),
+                'soil_moisture': round(soil_moisture_avg, 1),
+                'radiation': round(radiation_avg, 1)
             })
 
     if not forecast_list:
@@ -1130,12 +1155,87 @@ def build_agro_forecast_list(multi_model: Dict, forecast_days: int = 7) -> List[
                 'temp_max': round(temp_max, 1),
                 'temp_avg': round((temp_min + temp_max) / 2, 1),
                 'precip': round(precip, 1),
+                'precip_eff': round(precip - 2.0, 1),
                 'wind': round(wind, 1),
                 'wind_speed': round(wind, 1),
-                'humidity': humidity
+                'humidity': humidity,
+                'soil_moisture': 0,
+                'radiation': 0
             })
 
     return forecast_list
+
+def get_historical_gdd(crop_id, crop_info, sowing_date_str=None):
+    """获取作物本生长季的历史积温"""
+    gdd_base = crop_info.get('gdd_base', 10)
+    gdd_total = crop_info.get('gdd_total', 0)
+    
+    if gdd_total == 0:
+        return {"current": 0, "total": 0, "is_active": False}
+
+    today = datetime.now()
+    current_year = today.year
+    start_date = None
+    gdd_start = crop_info.get('gdd_start')
+
+    if gdd_start == "user" or crop_id == "bokchoy":
+        if not sowing_date_str:
+            return {"current": 0, "total": gdd_total, "is_active": False, "note": "请先设置播种日期"}
+        try:
+            start_date = datetime.strptime(sowing_date_str, "%Y-%m-%d")
+        except:
+            return {"current": 0, "total": gdd_total, "is_active": False, "note": "播种日期格式需为YYYY-MM-DD"}
+    elif gdd_start:
+        try:
+            start_date = datetime.strptime(f"{current_year}-{gdd_start}", "%Y-%m-%d")
+        except:
+            start_date = None
+    else:
+        stages = crop_info.get('stages', [])
+        if stages:
+            first_stage = stages[0]
+            start_md = first_stage.get('start', '01-01')
+            try:
+                start_date = datetime.strptime(f"{current_year}-{start_md}", "%Y-%m-%d")
+            except:
+                start_date = None
+
+    if not start_date:
+        return {"current": 0, "total": gdd_total, "is_active": False}
+
+    if start_date > today:
+        return {"current": 0, "total": gdd_total, "is_active": False}
+        
+    yesterday = today - timedelta(days=1)
+    if yesterday < start_date:
+        return {"current": 0, "total": gdd_total, "is_active": True, "start_date": start_date.strftime("%Y-%m-%d")}
+    
+    # 获取历史数据
+    print(f"🔄 计算GDD: {crop_id}, 周期: {start_date.strftime('%Y-%m-%d')} 至 {yesterday.strftime('%Y-%m-%d')}")
+    hist_data = forecast_service.fetch_historical_data(
+        start_date.strftime("%Y-%m-%d"), 
+        yesterday.strftime("%Y-%m-%d")
+    )
+    
+    hist_gdd = 0
+    if hist_data and 'daily' in hist_data:
+        daily = hist_data['daily']
+        t_max = daily.get('temperature_2m_max', [])
+        t_min = daily.get('temperature_2m_min', [])
+        
+        for i in range(len(t_max)):
+            if t_max[i] is not None and t_min[i] is not None:
+                avg = (t_max[i] + t_min[i]) / 2
+                gdd = max(0, avg - gdd_base)
+                hist_gdd += gdd
+    
+    print(f"✅ GDD计算完成: {hist_gdd:.1f}")
+    return {
+        "current": round(hist_gdd, 1),
+        "total": gdd_total,
+        "is_active": True,
+        "start_date": start_date.strftime("%Y-%m-%d")
+    }
 
 @app.route('/agro-dashboard')
 def agro_dashboard():
@@ -1144,26 +1244,19 @@ def agro_dashboard():
         # 1. 获取所有作物基本信息
         crops = crop_db.get_all_crops()
         
-        # 2. 获取未来7天预报 (复用 forecast_service)
-        # 注意：这里我们使用 Open-Meteo 数据，因为它包含更多农业参数
-        forecast_7d = forecast_service.fetch_detailed_72h_forecast() # 这里实际需要长期的，暂时用这个代替或修改 fetch
-        # 为了演示，我们先用 fetch_multi_model_forecast 获取 ECMWF 数据
+        # 2. 获取未来7天预报
         multi_model = forecast_service.fetch_multi_model_forecast(forecast_days=7)
-        
         forecast_list = build_agro_forecast_list(multi_model, forecast_days=7)
                 
         # 3. 生成预警
         alerts = agro_alert_engine.generate_alerts(forecast_list)
         
-        # 4. 计算每个作物的适宜度 (Mock)
+        # 4. 计算每个作物的适宜度
         crop_status = []
         for crop in crops:
             crop_id = crop['id']
             stage = crop_db.get_current_stage(crop_id)
-            
-            # 获取今天的天气
             today_weather = forecast_list[0] if forecast_list else {}
-            
             score, deductions = agro_calculator.calculate_suitability_score(stage, today_weather)
             
             crop_status.append({
@@ -1174,11 +1267,15 @@ def agro_dashboard():
                 'score': int(score),
                 'status': '适宜' if score > 80 else '一般' if score > 60 else '不适宜'
             })
-            
+        
+        # 5. 生成AI全域研判
+        ai_summary = ai_adviser.generate_dashboard_summary(alerts, forecast_list, crop_status)
+
         return render_template('agro_dashboard.html', 
                              crops=crop_status,
                              alerts=alerts,
                              forecast=forecast_list,
+                             ai_summary=ai_summary,
                              now=datetime.now().strftime("%Y-%m-%d"))
                              
     except Exception as e:
@@ -1192,6 +1289,9 @@ def crop_detail(crop_id):
     crop = crop_db.get_crop_info(crop_id)
     if not crop:
         return "作物不存在", 404
+    
+    # 确保ID存在于字典中，供模板判断
+    crop['id'] = crop_id
         
     stage = crop_db.get_current_stage(crop_id)
     if not stage:
@@ -1202,11 +1302,41 @@ def crop_detail(crop_id):
     all_alerts = agro_alert_engine.generate_alerts(forecast_list)
     crop_alerts = [a for a in all_alerts if a.get('crop_id') == crop_id]
     
+    # 计算GDD
+    sowing_date = request.args.get('sowing_date')
+    gdd_info = get_historical_gdd(crop_id, crop, sowing_date_str=sowing_date)
+    
+    # 预测未来7天GDD
+    forecast_gdd = 0
+    if gdd_info.get('is_active'):
+        gdd_base = crop.get('gdd_base', 10)
+        for day in forecast_list:
+            avg = day.get('temp_avg', 0)
+            forecast_gdd += max(0, avg - gdd_base)
+    
+    gdd_info['forecast'] = round(forecast_gdd, 1)
+    
+    # 计算百分比
+    if gdd_info['total'] > 0 and gdd_info.get('is_active'):
+        gdd_info['percent'] = min(100, round(gdd_info['current'] / gdd_info['total'] * 100, 1))
+        gdd_info['forecast_percent'] = min(100 - gdd_info['percent'], round(forecast_gdd / gdd_info['total'] * 100, 1))
+    else:
+        gdd_info['percent'] = 0
+        gdd_info['forecast_percent'] = 0
+        
+    # 获取适宜降水量
+    water_need_val = crop_db.get_water_need_value(stage.get('water_need', 'none'))
+    net_precip_eff = round(sum([d.get('precip_eff', 0) or 0 for d in forecast_list]), 1)
+    
     return render_template('crop_detail.html',
                          crop=crop,
                          current_stage=stage,
                          forecast=forecast_list,
                          alerts=crop_alerts,
+                         gdd=gdd_info,
+                         water_opt=water_need_val,
+                         net_precip_eff=net_precip_eff,
+                         sowing_date=sowing_date or "",
                          now=datetime.now().strftime("%Y-%m-%d"))
 
 @app.route('/api/agro/advice', methods=['POST'])

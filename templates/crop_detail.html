@@ -34,10 +34,37 @@
                 <div class="col-md-7">
                     <h2 class="mb-1">{{ crop.name }} <span class="badge bg-success fs-6 align-middle">{{ crop.category }}</span></h2>
                     <p class="text-muted mb-2">当前阶段: <span class="fw-bold text-primary fs-5">{{ current_stage.name }}</span> ({{ current_stage.start }} ~ {{ current_stage.end }})</p>
-                    <div class="progress" style="height: 10px;">
-                        <!-- 简单模拟进度 -->
-                        <div class="progress-bar bg-success" role="progressbar" style="width: 45%"></div>
+                    
+                    {% if gdd and gdd.is_active %}
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="fw-bold text-secondary"><i class="fas fa-temperature-high me-1"></i>有效积温进度 (GDD)</span>
+                            <span class="fw-bold">{{ gdd.current }} <span class="text-warning">+{{ gdd.forecast }}</span> / {{ gdd.total if gdd.total > 0 else '∞' }} d·℃</span>
+                        </div>
+                        <div class="progress" style="height: 12px; border-radius: 6px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ gdd.percent }}%" title="历史积累: {{ gdd.current }} d·℃"></div>
+                            <div class="progress-bar bg-warning progress-bar-striped" role="progressbar" style="width: {{ gdd.forecast_percent }}%" title="未来预测: {{ gdd.forecast }} d·℃"></div>
+                        </div>
+                        <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;">* 绿色为历史积累，黄色为未来7天预测新增</small>
+                        {% if crop.id == 'bokchoy' and sowing_date %}
+                        <small class="text-muted d-block" style="font-size: 0.75rem;">播种日：{{ sowing_date }}</small>
+                        {% endif %}
                     </div>
+                    {% else %}
+                    <div class="mt-3 p-2 bg-light rounded text-muted small border border-secondary-subtle">
+                        <i class="fas fa-info-circle me-1"></i>{{ gdd.note if gdd and gdd.note else '当前不在主要积温累计期或作物无需积温计算' }}
+                    </div>
+                    {% endif %}
+                    {% if crop.id == 'bokchoy' %}
+                    <form class="row g-2 align-items-center mt-2" method="get">
+                        <div class="col-auto">
+                            <input type="date" class="form-control form-control-sm" name="sowing_date" value="{{ sowing_date }}">
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-sm btn-outline-success" type="submit">设置播种日</button>
+                        </div>
+                    </form>
+                    {% endif %}
                 </div>
                 <div class="col-md-3 border-start">
                     <div class="d-flex flex-column justify-content-center h-100 ps-3">
@@ -134,6 +161,7 @@
                 </div>
                 <div class="card-body">
                     <canvas id="envChart" height="100"></canvas>
+                    <div class="small text-muted mt-2">未来7天净有效降水量：{{ net_precip_eff }} mm</div>
                 </div>
             </div>
         </div>
@@ -226,30 +254,111 @@
         const avgTemps = forecast.length ? forecast.map(d => d.temp_avg) : [18, 19, 21, 20, 22, 23, 22];
         const optTemp = {{ current_stage.temp_opt if current_stage else 0 }};
         const optLine = labels.map(() => optTemp);
+        
+        // 新增数据系列
+        const precipEff = forecast.length ? forecast.map(d => d.precip_eff || 0) : [];
+        const waterOpt = {{ water_opt if water_opt is defined else 0 }};
+        const waterOptLine = labels.map(() => waterOpt);
+        const precipMin = precipEff.length ? Math.min(0, ...precipEff) : 0;
+        const precipMax = precipEff.length ? Math.max(0, ...precipEff, waterOpt) : Math.max(0, waterOpt);
+        let y1Min = precipMin;
+        let y1Max = precipMax;
+        if (y1Min === y1Max) {
+            y1Min -= 1;
+            y1Max += 1;
+        }
 
         const ctx = document.getElementById('envChart').getContext('2d');
         new Chart(ctx, {
-            type: 'line',
+            type: 'bar', // 改为混合图表基础类型
             data: {
                 labels: labels,
-                datasets: [{
+                datasets: [
+                {
+                    type: 'bar',
+                    label: '有效降水(mm)',
+                    data: precipEff,
+                    backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                    yAxisID: 'y1',
+                    base: 0,
+                    barPercentage: 0.5
+                },
+                {
+                    type: 'line',
+                    label: '适宜降水(mm)',
+                    data: waterOptLine,
+                    borderColor: '#3498db',
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                },
+                {
+                    type: 'line',
                     label: '日平均气温(℃)',
                     data: avgTemps,
                     borderColor: '#2ecc71',
-                    tension: 0.4
+                    tension: 0.4,
+                    yAxisID: 'y'
                 }, {
-                    label: '适宜温度上限',
+                    type: 'line',
+                    label: '适宜温度(℃)',
                     data: optLine,
                     borderColor: '#e74c3c',
                     borderDash: [5, 5],
                     fill: false,
-                    pointRadius: 0
+                    pointRadius: 0,
+                    borderWidth: 1,
+                    yAxisID: 'y'
                 }]
             },
             options: {
                 responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 plugins: {
-                    legend: { position: 'top' }
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: '温度(℃)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: { display: true, text: '降水(mm)' },
+                        grid: { 
+                            drawOnChartArea: true,
+                            color: function(context) {
+                                return context.tick.value === 0 ? 'rgba(0,0,0,0.3)' : 'transparent';
+                            },
+                            lineWidth: function(context) {
+                                return context.tick.value === 0 ? 1 : 0;
+                            }
+                        },
+                        min: y1Min,
+                        max: y1Max
+                    }
                 }
             }
         });

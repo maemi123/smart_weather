@@ -43,9 +43,25 @@ class AgroAlertEngine:
                 precip = day_weather.get('precip', 0)
                 wind = day_weather.get('wind', 0)
                 humidity = day_weather.get('humidity', 60)
+                soil_moisture = day_weather.get('soil_moisture')
                 
                 # --- A. 灾害风险预警 (红色/黄色) ---
                 risks = crop_info.get('risks', {})
+
+                # 土壤干旱预警 (新增)
+                if soil_moisture is not None and soil_moisture < 0.18:
+                     # 排除休眠期
+                     if "休眠" not in stage_name and "越冬" not in stage_name:
+                        alerts.append({
+                            "type": "warning",
+                            "level": "medium",
+                            "crop_id": crop_id,
+                            "crop_name": crop_info['name'],
+                            "title": "土壤缺水风险",
+                            "date": day_date,
+                            "message": f"{day_date} 浅层土壤湿度低({soil_moisture})，需关注水分。",
+                            "action": "及时灌溉"
+                        })
                 
                 # 低温/冻害
                 if 'low_temp' in risks or 'frost' in risks or 'freeze' in risks:

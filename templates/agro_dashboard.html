@@ -213,18 +213,19 @@
         </div>
     </div>
     
-    <!-- 5. 底部：AI 顾问入口 -->
+    <!-- 5. 底部：AI 全局研判模块 -->
     <div class="row mt-4">
         <div class="col-12">
-            <div class="card bg-primary text-white shadow">
-                <div class="card-body d-flex align-items-center justify-content-between">
-                    <div>
-                        <h4 class="mb-1"><i class="fas fa-robot me-2"></i>需要更详细的建议？</h4>
-                        <p class="mb-0 opacity-75">点击作物详情页，获取基于 DeepSeek 大模型的个性化农事指导。</p>
-                    </div>
-                    <a href="/crop/rice" class="btn btn-light text-primary fw-bold px-4 rounded-pill">
-                        去试试 <i class="fas fa-arrow-right ms-2"></i>
-                    </a>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    {% if ai_summary %}
+                        {{ ai_summary | safe }}
+                    {% else %}
+                        <div class="alert alert-light border shadow-sm">
+                            <h5 class="alert-heading text-secondary"><i class="fas fa-robot me-2"></i>智能研判生成中...</h5>
+                            <p class="mb-0 text-muted">正在分析全省农情数据，请稍候。</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

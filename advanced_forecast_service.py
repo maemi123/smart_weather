@@ -75,7 +75,9 @@ class AdvancedForecastService:
                     "latitude": self.HANGZHOU_LAT,
                     "longitude": self.HANGZHOU_LON,
                     "hourly": ("temperature_2m,precipitation,relative_humidity_2m,"
-                               "wind_speed_10m,pressure_msl,weather_code"),
+                               "wind_speed_10m,pressure_msl,weather_code,"
+                               "et0_fao_evapotranspiration,shortwave_radiation,"
+                               "soil_moisture_0_to_7cm,soil_temperature_0_to_7cm"),
                     "forecast_days": min(forecast_days, 7),  # 获取7天
                     "models": model_name,
                     "timezone": "Asia/Shanghai"
@@ -108,6 +110,29 @@ class AdvancedForecastService:
 
         print(f"✅ 多模式数据获取完成，成功获取 {len(results)} 个模型")
         return results
+
+    def fetch_historical_data(self, start_date: str, end_date: str) -> Dict:
+        """获取历史气象数据 (Open-Meteo ERA5-Land)"""
+        print(f"🔄 获取历史数据: {start_date} 至 {end_date}...")
+        url = "https://archive-api.open-meteo.com/v1/archive"
+        params = {
+            "latitude": self.HANGZHOU_LAT,
+            "longitude": self.HANGZHOU_LON,
+            "start_date": start_date,
+            "end_date": end_date,
+            "daily": "temperature_2m_max,temperature_2m_min,temperature_2m_mean",
+            "timezone": "Asia/Shanghai"
+        }
+        try:
+            response = requests.get(url, params=params, timeout=25)
+            if response.status_code == 200:
+                print("✅ 历史数据获取成功")
+                return response.json()
+            print(f"❌ 历史数据获取失败: {response.status_code}")
+            return {}
+        except Exception as e:
+            print(f"❌ 历史数据获取异常: {str(e)}")
+            return {}
 
     def fetch_detailed_72h_forecast(self) -> Dict:
         """获取72小时精细化预报（从当前时间开始）"""
