@@ -37,6 +37,20 @@ app = Flask(__name__)
 QWEATHER_KEY = "REMOVED_KEY_2"
 weather_service = WeatherService(QWEATHER_KEY)
 
+_DASH_CACHE = {}
+
+def _cache_get(key: str, max_age_seconds: int):
+    item = _DASH_CACHE.get(key)
+    if not item:
+        return None
+    ts = item.get("ts", 0)
+    if time.time() - ts > max_age_seconds:
+        return None
+    return item.get("value")
+
+def _cache_set(key: str, value):
+    _DASH_CACHE[key] = {"ts": time.time(), "value": value}
+
 
 # 1. 读取模拟数据
 def get_weather_data():
@@ -86,41 +100,280 @@ def get_ai_analysis(weather_text):
 
 @app.route('/')
 def index():
-    # 获取真实的天气数据
-    df = weather_service.get_daily_forecast()
-    weather_list = df.to_dict('records')
+    return render_template('index.html', city="杭州")
 
-    # 生成图表
-    chart_gen = ChartGenerator()
-    temp_chart_path = chart_gen.create_temperature_chart(df)
-    precip_chart_path = chart_gen.create_precipitation_chart(df)
-    # 尝试生成雷达图，失败时使用备用方案
-    radar_chart_path = chart_gen.create_weather_radar_chart(df)
-    if radar_chart_path is None:
-        radar_chart_path = chart_gen.create_simple_radar_chart(df)
-        if radar_chart_path:
-            print("[INFO] Using simple radar chart")
 
-    # 将数据转换为文本，供AI分析
-    weather_text = "\n".join([
-        f"{item['date']}: 最高{item['temp_max']}°C, 最低{item['temp_min']}°C, "
-        f"降水{item['precipitation']}mm, {item['weather']}, "
-        f"湿度{item['humidity']}%, {item['wind_dir']}{item['wind_scale']}级"
-        for item in weather_list
-    ])
+@app.route('/api/current-weather')
+def api_current_weather():
+    try:
+        latitude = 30.25
+        longitude = 120.17
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "current_weather": "true",
+            "hourly": "relative_humidity_2m,pressure_msl,precipitation,apparent_temperature",
+            "timezone": "Asia/Shanghai",
+            "windspeed_unit": "ms",
+        }
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json() or {}
 
-    # 获取AI分析
-    ai_report = get_ai_analysis(weather_text)
+        current = data.get("current_weather") or {}
+        hourly = data.get("hourly") or {}
+        times = hourly.get("time") or []
+        current_time = current.get("time")
 
-    # 渲染到模板
-    return render_template('index.html',
-                           weather_data=weather_list,
-                           ai_report=ai_report,
-                           data_source="心知天气API",
-                           now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                           temp_chart=temp_chart_path.replace('static/', ''),
-                           precip_chart=precip_chart_path.replace('static/', ''),
-                           radar_chart=radar_chart_path.replace('static/', ''))
+        idx = None
+        if current_time and times:
+            try:
+                idx = times.index(current_time)
+            except ValueError:
+                idx = len(times) - 1
+
+        def pick(key, default=None):
+            arr = hourly.get(key) or []
+            if idx is None or not arr:
+                return default
+            try:
+                return arr[idx]
+            except Exception:
+                return default
+
+        temp = current.get("temperature")
+        feels_like = pick("apparent_temperature", temp)
+        humidity = pick("relative_humidity_2m")
+        pressure = pick("pressure_msl")
+        precipitation = pick("precipitation", 0.0)
+        wind_speed = current.get("windspeed")
+        weather_code = current.get("weathercode")
+        update_time = current_time or datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        return jsonify({
+            "temp": float(temp) if temp is not None else None,
+            "feels_like": float(feels_like) if feels_like is not None else None,
+            "humidity": int(humidity) if humidity is not None else None,
+            "wind_speed": float(wind_speed) if wind_speed is not None else None,
+            "pressure": float(pressure) if pressure is not None else None,
+            "precipitation": float(precipitation) if precipitation is not None else None,
+            "weather_code": int(weather_code) if weather_code is not None else None,
+            "update_time": str(update_time),
+        })
+    except Exception as e:
+        return jsonify({"error": "current-weather fetch failed", "detail": str(e)}), 502
+
+
+@app.route('/api/preview-charts')
+def api_preview_charts():
+    cached = _cache_get("preview_charts", 10 * 60)
+    if cached:
+        return jsonify(cached)
+
+    try:
+        latitude = 30.25
+        longitude = 120.17
+
+        forecast_url = "https://api.open-meteo.com/v1/forecast"
+        forecast_params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "daily": "temperature_2m_max,temperature_2m_min",
+            "forecast_days": 7,
+            "timezone": "Asia/Shanghai",
+        }
+        fr = requests.get(forecast_url, params=forecast_params, timeout=15)
+        fr.raise_for_status()
+        fdata = fr.json() or {}
+        daily = fdata.get("daily") or {}
+        t_dates = daily.get("time") or []
+        t_max = daily.get("temperature_2m_max") or []
+        t_min = daily.get("temperature_2m_min") or []
+
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=29)
+
+        archive_url = "https://archive-api.open-meteo.com/v1/archive"
+        archive_params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d"),
+            "daily": "precipitation_sum",
+            "timezone": "Asia/Shanghai",
+        }
+        ar = requests.get(archive_url, params=archive_params, timeout=20)
+        ar.raise_for_status()
+        adata = ar.json() or {}
+        adaily = adata.get("daily") or {}
+        p_dates = adaily.get("time") or []
+        p_vals = adaily.get("precipitation_sum") or []
+
+        payload = {
+            "temperature_7d": {"dates": t_dates, "max": t_max, "min": t_min},
+            "precipitation_30d": {"dates": p_dates, "values": p_vals},
+        }
+        _cache_set("preview_charts", payload)
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({"error": "preview-charts fetch failed", "detail": str(e)}), 502
+
+
+@app.route('/api/smart-tips')
+def api_smart_tips():
+    cached = _cache_get("smart_tips", 5 * 60)
+    if cached:
+        return jsonify(cached)
+
+    tips = []
+    try:
+        multi_model = forecast_service.fetch_multi_model_forecast(forecast_days=7)
+
+        forecast_list = build_agro_forecast_list(multi_model, forecast_days=7)
+        alerts = agro_alert_engine.generate_alerts(forecast_list)
+
+        if alerts:
+            level_rank = {"high": 1, "medium": 2, "low": 3}
+            sorted_alerts = sorted(alerts, key=lambda a: (level_rank.get(a.get("level"), 9), a.get("date", "")))
+            for a in sorted_alerts[:2]:
+                level = a.get("level")
+                icon = "🌾"
+                if level == "high":
+                    icon = "🚨"
+                elif level == "medium":
+                    icon = "⚠️"
+                tips.append({
+                    "type": "农业",
+                    "icon": icon,
+                    "content": f"{a.get('crop_name','作物')}：{a.get('title','')}",
+                    "action": "查看详情",
+                    "link": f"/crop/{a.get('crop_id')}" if a.get("crop_id") else "/agro-dashboard",
+                    "priority": 1 if level == "high" else 2 if level == "medium" else 3
+                })
+        else:
+            net_eff = sum((d.get("precip_eff", 0) or 0) for d in (forecast_list or [])[:7])
+            if net_eff <= -10:
+                tips.append({
+                    "type": "农业",
+                    "icon": "🌾",
+                    "content": f"未来7天净有效降水{net_eff:.1f}mm，田间水分偏紧，建议关注灌溉与保墒。",
+                    "action": "看农业",
+                    "link": "/agro-dashboard",
+                    "priority": 3
+                })
+
+        if "ecmwf_ifs" in multi_model and "gfs_seamless" in multi_model:
+            def sum_precip_first_days(model_key: str, days: int = 3):
+                mi = multi_model.get(model_key) or {}
+                d = (mi.get("data") or {}).get("data") or {}
+                ts = (mi.get("data") or {}).get("timestamps") or []
+                p = d.get("precipitation") or []
+                daily_sum = {}
+                n = min(len(ts), len(p))
+                for i in range(n):
+                    date_str = (ts[i] or "").split(" ")[0]
+                    if not date_str:
+                        continue
+                    daily_sum[date_str] = daily_sum.get(date_str, 0.0) + (p[i] or 0.0)
+                keys = sorted(daily_sum.keys())[:days]
+                return sum(daily_sum[k] for k in keys)
+
+            e_sum = sum_precip_first_days("ecmwf_ifs", 3)
+            g_sum = sum_precip_first_days("gfs_seamless", 3)
+            diff = abs(e_sum - g_sum)
+            if diff >= 8:
+                tips.append({
+                    "type": "预报对比",
+                    "icon": "📊",
+                    "content": f"未来3天降水预报分歧较大：ECMWF约{e_sum:.1f}mm，GFS约{g_sum:.1f}mm。",
+                    "action": "去对比",
+                    "link": "/advanced-forecast",
+                    "priority": 3
+                })
+
+    except Exception:
+        pass
+
+    try:
+        cached_upper = _cache_get("upperair_tip", 30 * 60)
+        if cached_upper:
+            tips.append(cached_upper)
+        else:
+            result = sounding_parser.fetch_sounding_data("58457", None)
+            if result.get("success"):
+                parsed = sounding_parser.parse_sounding_data(result.get("raw_data"))
+                analysis = sounding_analyzer.analyze(pd.DataFrame(parsed.get("levels", [])), parsed.get("indices", {}))
+                risk = analysis.get("risk_assessment") or {}
+                level = (risk.get("level") or "").strip()
+                color = risk.get("color")
+                if level and level != "低风险":
+                    icon = "⚡" if color in ("warning", "danger") else "🎈"
+                    tip = {
+                        "type": "强对流",
+                        "icon": icon,
+                        "content": f"{level}：{risk.get('description','')}",
+                        "action": "查看探空",
+                        "link": "/upperair",
+                        "priority": 2 if color == "warning" else 1 if color == "danger" else 3
+                    }
+                    _cache_set("upperair_tip", tip)
+                    tips.append(tip)
+    except Exception:
+        pass
+
+    tips = sorted(tips, key=lambda x: x.get("priority", 9))[:3]
+    _cache_set("smart_tips", tips)
+    return jsonify(tips)
+
+
+@app.route('/api/module-status')
+def api_module_status():
+    cached = _cache_get("module_status", 2 * 60)
+    if cached:
+        return jsonify(cached)
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    modules = {}
+
+    try:
+        multi_model = forecast_service.fetch_multi_model_forecast(forecast_days=7)
+        ok = bool(multi_model and any(k in multi_model for k in ("ecmwf_ifs", "gfs_seamless", "best_match")))
+        detail = "可用模型：" + "、".join([k for k in ("ecmwf_ifs", "gfs_seamless", "icon_global", "best_match") if k in (multi_model or {})])
+        modules["forecast"] = {"status": "ok" if ok else "error", "detail": detail if ok else "预报数据不可用"}
+    except Exception as e:
+        modules["forecast"] = {"status": "error", "detail": str(e)}
+
+    try:
+        result = sounding_parser.fetch_sounding_data("58457", None)
+        if result.get("success"):
+            modules["sounding"] = {"status": "ok", "detail": "已获取（最近时次）"}
+        else:
+            modules["sounding"] = {"status": "warn", "detail": result.get("error", "获取失败")}
+    except Exception as e:
+        modules["sounding"] = {"status": "warn", "detail": str(e)}
+
+    try:
+        crops = crop_db.get_all_crops()
+        multi_model = forecast_service.fetch_multi_model_forecast(forecast_days=7)
+        forecast_list = build_agro_forecast_list(multi_model, forecast_days=7)
+        alerts = agro_alert_engine.generate_alerts(forecast_list)
+        modules["agriculture"] = {"status": "track", "detail": f"{len(crops)}种作物，{len(alerts)}条预警"}
+    except Exception as e:
+        modules["agriculture"] = {"status": "warn", "detail": str(e)}
+
+    try:
+        years = analyzer.get_available_years()
+        if years:
+            modules["climate"] = {"status": "ok", "detail": f"{years[-1]}年数据可对比"}
+        else:
+            modules["climate"] = {"status": "warn", "detail": "暂无可用历史数据"}
+    except Exception as e:
+        modules["climate"] = {"status": "warn", "detail": str(e)}
+
+    payload = {"last_update": now_str, "modules": modules}
+    _cache_set("module_status", payload)
+    return jsonify(payload)
 
 
 @app.route('/ecmwf')
