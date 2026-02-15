@@ -447,6 +447,26 @@ class AdvancedForecastService:
 
         print(f"原始数据: {len(timestamps)} 个时间点，{len(temps)} 个温度值")
 
+        model_daily_precip = {}
+        for model_key, model_info in models_data.items():
+            if model_key == "ensemble":
+                continue
+            try:
+                md = model_info.get("data") or {}
+                mts = md.get("timestamps") or []
+                mp = (md.get("data") or {}).get("precipitation") or []
+                daily = {}
+                n = min(len(mts), len(mp))
+                for j in range(n):
+                    ts = mts[j]
+                    if not ts:
+                        continue
+                    date_str = ts.split(" ")[0] if " " in ts else ts[:10]
+                    daily[date_str] = daily.get(date_str, 0.0) + (mp[j] or 0.0)
+                model_daily_precip[model_key] = daily
+            except Exception:
+                model_daily_precip[model_key] = {}
+
         # 按日期聚合数据
         daily_data = {}
         for i, ts in enumerate(timestamps):
@@ -521,6 +541,21 @@ class AdvancedForecastService:
                 precip_values = [p for p in values["precips"] if p is not None]
                 precip_total = sum(precip_values) if precip_values else 0
 
+                precip_model_vals = []
+                for mk, mp_map in model_daily_precip.items():
+                    if date_str in (mp_map or {}):
+                        precip_model_vals.append(mp_map[date_str])
+                if precip_model_vals:
+                    if len(precip_model_vals) >= 2:
+                        precip_lower = float(np.percentile(np.array(precip_model_vals), 25))
+                        precip_upper = float(np.percentile(np.array(precip_model_vals), 75))
+                    else:
+                        precip_lower = float(precip_model_vals[0])
+                        precip_upper = float(precip_model_vals[0])
+                else:
+                    precip_lower = None
+                    precip_upper = None
+
                 # 计算降水概率（有降水的小时数比例）
                 precip_hours = sum(1 for p in precip_values if p > 0.1)
                 precip_prob = min(100, precip_hours / max(1, len(precip_values)) * 100)
@@ -585,6 +620,8 @@ class AdvancedForecastService:
                     "temp_upper": round(temp_avg + temp_range, 1),  # 置信区间上界
                     "precip_total": round(precip_total, 1),
                     "precip_prob": round(precip_prob, 0),
+                    "precip_lower": round(precip_lower, 1) if precip_lower is not None else None,
+                    "precip_upper": round(precip_upper, 1) if precip_upper is not None else None,
                     "confidence": confidence,
                     "conf_emoji": conf_emoji,
                     "days_ahead": days_diff

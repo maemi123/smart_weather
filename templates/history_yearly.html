@@ -24,6 +24,7 @@
                 <li class="nav-item"><a class="nav-link" href="/">实时天气</a></li>
                 <li class="nav-item"><a class="nav-link" href="/forecast">智能预报</a></li>
                 <li class="nav-item"><a class="nav-link active" href="/history/yearly">历史分析</a></li>
+                <li class="nav-item"><a class="nav-link" href="/history/trend">趋势分析</a></li>
             </ul>
         </div>
     </div>
@@ -168,7 +169,7 @@
                                 </div>
                                 
                                 {% if charts.wind_rose %}
-                                    <iframe id="windChartFrame" src="{{ url_for('static', filename='charts/wind_rose.html') }}" width="100%" height="450" frameborder="0"></iframe>
+                                    <iframe id="windChartFrame" src="{{ url_for('static', filename=charts.wind_rose) }}" width="100%" height="450" frameborder="0"></iframe>
                                 {% else %}
                                     <div class="text-center py-5 text-muted">暂无风向数据</div>
                                 {% endif %}

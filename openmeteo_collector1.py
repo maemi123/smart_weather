@@ -18,11 +18,13 @@ from typing import Dict, Optional
 class OpenMeteoCollector1:
     """专业气象数据采集器 - 修正时间处理版本"""
 
-    # 萧山国际机场精确坐标
-    HANGZHOU_LAT = 30.2295
-    HANGZHOU_LON = 120.4343
+    # ===== 修改1: 改为杭州国家站坐标 =====
+    # 杭州国家基准气候站 (杭州国家站)
+    # 站号: 58457, 坐标: 30.2444°N, 120.1528°E
+    HANGZHOU_LAT = 30.2444
+    HANGZHOU_LON = 120.1528
 
-    def __init__(self, save_dir: str = "data/openmeteo/vertical"):
+    def __init__(self, save_dir: str = "data/hangzhou_openmeteo"):
         self.save_dir = save_dir
         os.makedirs(save_dir, exist_ok=True)
         self.base_url = "https://api.open-meteo.com/v1/forecast"
@@ -45,38 +47,6 @@ class OpenMeteoCollector1:
             "wind_gusts_10m",  # 阵风 (km/h)
             "visibility",  # 能见度 (m)
             "is_day",  # 是否白天 (1/0)
-
-            # ===== 新增：关键垂直层参数 =====
-            # 温度垂直剖面（不同高度）
-            "temperature_850hPa",  # 850hPa温度 (~1500米) - 关键层！
-            "temperature_700hPa",  # 700hPa温度 (~3000米)
-            "temperature_500hPa",  # 500hPa温度 (~5500米) - 中层
-
-            # 湿度垂直剖面
-            "relative_humidity_850hPa",  # 850hPa相对湿度
-            "relative_humidity_700hPa",  # 700hPa相对湿度
-            "relative_humidity_500hPa",  # 500hPa相对湿度
-
-            # 风场垂直剖面
-            "wind_speed_850hPa",  # 850hPa风速
-            "wind_direction_850hPa",  # 850hPa风向
-            "wind_speed_700hPa",
-            "wind_direction_700hPa",
-            "wind_speed_500hPa",
-            "wind_direction_500hPa",
-
-            # 位势高度（反映气压系统）
-            "geopotential_height_850hPa",  # 850hPa位势高度
-            "geopotential_height_500hPa",  # 500hPa位势高度
-
-            # 大气稳定度指数（直接反映热力条件）
-            "cape",  # 对流有效位能 - 关键！
-            "cin",  # 对流抑制能量
-            "lifted_index",  # 抬升指数
-            "k_index",  # K指数
-
-            # 垂直速度（反映上升运动）
-            "vertical_velocity_700hPa",  # 700hPa垂直速度
         ]
 
     def fetch_forecast_data(self, forecast_days: int = 7) -> Optional[Dict]:
@@ -91,7 +61,7 @@ class OpenMeteoCollector1:
                 "models": "best_match",
             }
 
-            print(f"📍 目标: 萧山国际机场 (杭州)")
+            print(f"📍 目标: 杭州国家站 (坐标: {self.HANGZHOU_LAT}°N, {self.HANGZHOU_LON}°E)")
             print(f"📅 预报天数: {forecast_days}天")
             print(f"🕐 时区: Asia/Shanghai")
 
@@ -254,7 +224,7 @@ class OpenMeteoCollector1:
             # ===== 保存文件 =====
             forecast_start = dates[0]
             collect_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"HGH_forecast_{forecast_start}_{collect_time}.csv"
+            filename = f"HZ_forecast_{forecast_start}_{collect_time}.csv"  # 从HGH改为HZ
             filepath = os.path.join(self.save_dir, filename)
 
             df.to_csv(filepath, index=False, encoding='utf-8-sig')
@@ -305,33 +275,6 @@ class OpenMeteoCollector1:
         print(f"📁 文件: {os.path.basename(filepath)}")
         return True
 
-    def validate_vertical_data(self, data):
-        """验证垂直数据是否获取成功"""
-        print(f"\n🔬 垂直数据验证:")
-
-        vertical_params = [
-            ('temperature_850hPa', '850hPa温度'),
-            ('relative_humidity_850hPa', '850hPa湿度'),
-            ('wind_speed_850hPa', '850hPa风速'),
-            ('cape', '对流有效位能'),
-            ('geopotential_height_500hPa', '500hPa位势高度'),
-        ]
-
-        available = 0
-        for param, desc in vertical_params:
-            if param in data['hourly']:
-                values = data['hourly'][param]
-                if values and values[0] is not None:
-                    print(f"  ✅ {desc}: [{min(values):.1f}, {max(values):.1f}]")
-                    available += 1
-                else:
-                    print(f"  ⚠️  {desc}: 数据为空")
-            else:
-                print(f"  ❌ {desc}: 未返回")
-
-        print(f"垂直参数获取率: {available}/{len(vertical_params)}")
-        return available > 0
-
 
 # 主程序
 if __name__ == "__main__":
@@ -342,8 +285,8 @@ if __name__ == "__main__":
 
     print("\n" + "=" * 60)
     if success:
-        print("🎉 气象数据采集成功完成!")
-        print("   数据已保存至 data/openmeteo/ 目录")
+        print("🎉 杭州国家站数据采集成功!")
+        print("   数据已保存至 data/hangzhou_openmeteo/ 目录")
         print("   可用于机器学习训练和天气分析")
     else:
         print("❌ 数据采集失败，请检查网络或API状态")

@@ -258,7 +258,7 @@ class ChartGenerator:
             # 6. 保存图表
             os.makedirs('static/charts', exist_ok=True)
             chart_path = 'static/charts/weather_radar.html'
-            fig.write_html(chart_path, include_plotlyjs='cdn')  # 使用CDN减小文件大小
+            fig.write_html(chart_path, include_plotlyjs='include')
 
             print("[INFO] Radar chart created successfully")
             return chart_path
@@ -315,7 +315,7 @@ class ChartGenerator:
 
             chart_path = 'static/charts/simple_radar.html'
             os.makedirs('static/charts', exist_ok=True)
-            fig.write_html(chart_path, include_plotlyjs='cdn')
+            fig.write_html(chart_path, include_plotlyjs='include')
 
             return chart_path
 
@@ -490,7 +490,7 @@ class ChartGenerator:
 
             chart_path = 'static/charts/monthly_comparison.html'
             os.makedirs('static/charts', exist_ok=True)
-            fig.write_html(chart_path, include_plotlyjs='cdn', full_html=False)
+            fig.write_html(chart_path, include_plotlyjs='include', full_html=False)
             
             return chart_path
 
@@ -530,7 +530,7 @@ class ChartGenerator:
 
             chart_path = 'static/charts/temp_distribution.html'
             os.makedirs('static/charts', exist_ok=True)
-            fig.write_html(chart_path, include_plotlyjs='cdn', full_html=False)
+            fig.write_html(chart_path, include_plotlyjs='include', full_html=False)
             return chart_path
 
         except Exception as e:
@@ -579,29 +579,64 @@ class ChartGenerator:
             else:
                 sample_df = df_to_plot.copy()
                 
-            # 确保风向是数值
-            # 处理 RP5 数据中可能的非数值风向 (如 "Calm", "Variable")
-            # 将这些非数值转换为 NaN，后续 dropna 会过滤掉
-            sample_df['wind_direction'] = pd.to_numeric(sample_df['wind_direction'], errors='coerce')
-            
-            # 过滤掉风速为0的数据（静风不画在玫瑰图的方向上，或者单独处理）
-            # 这里简单过滤
+            dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+            dir_set = set(dirs)
+
+            def normalize_direction(v):
+                if v is None:
+                    return None
+                if isinstance(v, (int, float, np.number)):
+                    return wind_dir_to_cardinal(v)
+                s = str(v).strip().upper()
+                if not s:
+                    return None
+                cn_map = [
+                    ("从西北偏北方向吹来的风", "NNW"),
+                    ("从东北偏北方向吹来的风", "NNE"),
+                    ("从东南偏东方向吹来的风", "ESE"),
+                    ("从西南偏南方向吹来的风", "SSW"),
+                    ("从北方吹来的风", "N"),
+                    ("从南方吹来的风", "S"),
+                    ("从东方吹来的风", "E"),
+                    ("从西方吹来的风", "W"),
+                    ("西北", "NW"),
+                    ("东北", "NE"),
+                    ("东南", "SE"),
+                    ("西南", "SW"),
+                    ("北", "N"),
+                    ("东", "E"),
+                    ("南", "S"),
+                    ("西", "W"),
+                ]
+                for cn, abbr in cn_map:
+                    if cn in s:
+                        return abbr
+                if s in dir_set:
+                    return s
+                if "VAR" in s or "VRB" in s or "VARIABLE" in s:
+                    return None
+                if "CALM" in s or "静" in s:
+                    return None
+                try:
+                    return wind_dir_to_cardinal(float(s))
+                except:
+                    pass
+                cleaned = s.replace("°", "").replace("DEG", "").replace("度", "")
+                try:
+                    return wind_dir_to_cardinal(float(cleaned))
+                except:
+                    return None
+
+            sample_df['wind_speed'] = pd.to_numeric(sample_df['wind_speed'], errors='coerce')
+            sample_df['direction'] = sample_df['wind_direction'].apply(normalize_direction)
+            sample_df = sample_df.dropna(subset=['direction', 'wind_speed'])
             sample_df = sample_df[sample_df['wind_speed'] > 0]
-            
-            sample_df = sample_df.dropna(subset=['wind_direction', 'wind_speed'])
-            
-            sample_df['direction'] = sample_df['wind_direction'].apply(wind_dir_to_cardinal)
-            # 过滤掉无法转换的方向
-            sample_df = sample_df.dropna(subset=['direction'])
             
             if len(sample_df) == 0:
                 print(f"[WARNING] No valid wind data for rose chart (Year/Month)")
                 return None
 
             # 统计频次和强度
-            # 确保 wind_speed 是数值
-            sample_df['wind_speed'] = pd.to_numeric(sample_df['wind_speed'], errors='coerce')
-            
             fig = px.bar_polar(sample_df, r="wind_speed", theta="direction",
                    color="wind_speed", template="plotly_white",
                    color_discrete_sequence=px.colors.sequential.Plasma_r,
@@ -619,7 +654,7 @@ class ChartGenerator:
             chart_path = f'static/charts/{filename}'
             
             os.makedirs('static/charts', exist_ok=True)
-            fig.write_html(chart_path, include_plotlyjs='cdn', full_html=False)
+            fig.write_html(chart_path, include_plotlyjs='include', full_html=True)
             return chart_path
 
         except Exception as e:

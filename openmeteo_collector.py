@@ -283,7 +283,7 @@ if __name__ == "__main__":
 
     print("\n" + "=" * 60)
     if success:
-        print("🎉 气象数据采集成功完成!")
+        print("🎉 萧山机场站气象数据采集成功完成!")
         print("   数据已保存至 data/openmeteo/ 目录")
         print("   可用于机器学习训练和天气分析")
     else:

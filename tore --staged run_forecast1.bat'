@@ -1,0 +1,23 @@
+warning: in the working copy of 'advanced_forecast_service.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/history_trend.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/history_yearly.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/index.html', LF will be replaced by CRLF the next time Git touches it
+__pycache__/advanced_forecast_service.cpython-312.pyc
+__pycache__/agro_alert_engine.cpython-312.pyc
+__pycache__/app.cpython-312.pyc
+__pycache__/chart_generator.cpython-312.pyc
+__pycache__/crop_database.cpython-312.pyc
+__pycache__/farming_ai_adviser.cpython-312.pyc
+__pycache__/sounding_parser.cpython-312.pyc
+advanced_forecast_service.py
+app.py
+chart_generator.py
+openmeteo_collector.py
+openmeteo_collector1.py
+run_forecast1.bat
+static/charts/monthly_comparison.html
+static/charts/temp_distribution.html
+templates/advanced_forecast.html
+templates/history_trend.html
+templates/history_yearly.html
+templates/index.html

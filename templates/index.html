@@ -6,7 +6,30 @@
     <title>智能天气仪表盘</title>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        (function () {
+            function loadScript(src) {
+                return new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.async = true;
+                    s.onload = resolve;
+                    s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+            }
+            window.__ensureChartJs = async function () {
+                if (window.Chart) return;
+                try {
+                    await loadScript('https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js');
+                } catch (e) {
+                    throw e;
+                }
+            };
+        })();
+    </script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.9.1/chart.min.js"
+            onerror="window.__ensureChartJs && window.__ensureChartJs()"></script>
     <style>
         body { background: #f5f7fa; }
         .card-soft { border: 0; border-radius: 12px; box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08); }
@@ -163,6 +186,8 @@
                         <div class="skeleton w-260" style="height: 18px;"></div>
                         <div class="skeleton w-260 mt-2" style="height: 18px;"></div>
                         <div class="skeleton w-260 mt-2" style="height: 18px;"></div>
+                        <div class="skeleton w-260 mt-2" style="height: 18px;"></div>
+                        <div class="skeleton w-260 mt-2" style="height: 18px;"></div>
                     </div>
                     <div class="small mt-3 d-none text-danger" id="tipsError"><i class="fas fa-circle-exclamation me-1"></i>智能提醒加载失败</div>
                 </div>
@@ -174,7 +199,7 @@
                 <div class="col-12 col-lg-6">
                     <div class="card card-soft h-100">
                         <div class="card-body p-4">
-                            <div class="fw-bold"><i class="fas fa-temperature-half me-2 text-primary"></i>未来7天温度</div>
+                            <div class="fw-bold"><i class="fas fa-temperature-half me-2 text-primary"></i>未来7天温度与降水</div>
                             <div class="mt-3" style="height: 260px;">
                                 <canvas id="temp7dChart"></canvas>
                             </div>
@@ -185,7 +210,7 @@
                 <div class="col-12 col-lg-6">
                     <div class="card card-soft h-100">
                         <div class="card-body p-4">
-                            <div class="fw-bold"><i class="fas fa-cloud-rain me-2 text-primary"></i>过去30天降水</div>
+                            <div class="fw-bold"><i class="fas fa-cloud-rain me-2 text-primary"></i>过去30天降水与温度</div>
                             <div class="mt-3" style="height: 260px;">
                                 <canvas id="precip30dChart"></canvas>
                             </div>
@@ -316,7 +341,7 @@
                 document.getElementById('tipsMoreLink').setAttribute('href', '/advanced-forecast');
                 return;
             }
-            const rows = tips.slice(0, 3).map(t => {
+            const rows = tips.slice(0, 5).map(t => {
                 const link = t.link || '#';
                 const action = t.action || '查看';
                 const type = t.type || '';
@@ -357,25 +382,29 @@
         document.getElementById('temp7dError').classList.add('d-none');
         document.getElementById('precip30dError').classList.add('d-none');
         try {
+            if (!window.Chart) throw new Error('chartjs missing');
             const resp = await fetch('/api/preview-charts', { cache: 'no-store' });
             if (!resp.ok) throw new Error('api failed');
             const data = await resp.json();
-            const t = data.temperature_7d || {};
-            const p = data.precipitation_30d || {};
+            const f7 = data.forecast_7d || {};
+            const h30 = data.history_30d || {};
 
-            const tLabels = (t.dates || []).map(d => (d || '').slice(5));
-            const tMax = (t.max || []).map(v => Number(v));
-            const tMin = (t.min || []).map(v => Number(v));
+            const f7Labels = (f7.dates || []).map(d => (d || '').slice(5));
+            const f7Tmax = (f7.tmax || []).map(v => Number(v));
+            const f7Tmin = (f7.tmin || []).map(v => Number(v));
+            const f7Precip = (f7.precip || []).map(v => Number(v) || 0);
+            const f7PrecipColors = f7Precip.map(precipColor);
 
             const tCtx = document.getElementById('temp7dChart').getContext('2d');
             destroyChart(temp7dChart);
             temp7dChart = new Chart(tCtx, {
-                type: 'line',
+                type: 'bar',
                 data: {
-                    labels: tLabels,
+                    labels: f7Labels,
                     datasets: [
-                        { label: '最高温', data: tMax, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.12)', tension: 0.35, pointRadius: 2 },
-                        { label: '最低温', data: tMin, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.12)', tension: 0.35, pointRadius: 2 }
+                        { type: 'line', label: '最高温', data: f7Tmax, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.12)', tension: 0.35, pointRadius: 2, yAxisID: 'y' },
+                        { type: 'line', label: '最低温', data: f7Tmin, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.12)', tension: 0.35, pointRadius: 2, yAxisID: 'y' },
+                        { type: 'bar', label: '降水', data: f7Precip, backgroundColor: f7PrecipColors, borderWidth: 0, yAxisID: 'y1', barPercentage: 0.9, categoryPercentage: 0.9 }
                     ]
                 },
                 options: {
@@ -383,31 +412,37 @@
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: { legend: { position: 'top' } },
-                    scales: { y: { title: { display: true, text: '℃' } } }
+                    scales: {
+                        y: { title: { display: true, text: '℃' } },
+                        y1: { position: 'right', title: { display: true, text: 'mm' }, grid: { drawOnChartArea: false } }
+                    }
                 }
             });
 
-            const pLabels = (p.dates || []).map(d => (d || '').slice(5));
-            const pVals = (p.values || []).map(v => Number(v) || 0);
-            const pColors = pVals.map(precipColor);
+            const h30Labels = (h30.dates || []).map(d => (d || '').slice(5));
+            const h30Precip = (h30.precip || []).map(v => Number(v) || 0);
+            const h30PrecipColors = h30Precip.map(precipColor);
+            const h30Tmean = (h30.tmean || []).map(v => v == null ? null : Number(v));
 
             const pCtx = document.getElementById('precip30dChart').getContext('2d');
             destroyChart(precip30dChart);
             precip30dChart = new Chart(pCtx, {
                 type: 'bar',
                 data: {
-                    labels: pLabels,
+                    labels: h30Labels,
                     datasets: [
-                        { label: '降水量', data: pVals, backgroundColor: pColors, borderWidth: 0, barPercentage: 0.9, categoryPercentage: 0.95 }
+                        { type: 'bar', label: '降水', data: h30Precip, backgroundColor: h30PrecipColors, borderWidth: 0, yAxisID: 'y', barPercentage: 0.9, categoryPercentage: 0.95 },
+                        { type: 'line', label: '温度', data: h30Tmean, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.12)', tension: 0.25, pointRadius: 0, yAxisID: 'y1' }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { legend: { position: 'top' } },
                     scales: {
                         x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
-                        y: { title: { display: true, text: 'mm' } }
+                        y: { title: { display: true, text: 'mm' } },
+                        y1: { position: 'right', title: { display: true, text: '℃' }, grid: { drawOnChartArea: false } }
                     }
                 }
             });
@@ -459,8 +494,13 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadCurrentWeather();
         loadSmartTips();
-        loadPreviewCharts();
         loadModuleStatus();
+        (async () => {
+            try {
+                if (window.__ensureChartJs) await window.__ensureChartJs();
+            } catch (e) {}
+            await loadPreviewCharts();
+        })();
         setInterval(loadCurrentWeather, 60 * 60 * 1000);
     });
 </script>

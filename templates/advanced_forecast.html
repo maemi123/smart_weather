@@ -356,7 +356,7 @@
                         const displayHours = 72;
                         const maxPoints = Math.min(displayHours, data.full_labels.length);
 
-                        const labels = data.full_labels.slice(0, maxPoints);
+                        const labels = data.timestamps ? data.timestamps.slice(0, maxPoints) : data.full_labels.slice(0, maxPoints);
                         const dayLabels = data.day_labels ? data.day_labels.slice(0, maxPoints) : labels;
 
                         // 1. 温度线（红色）
@@ -369,7 +369,9 @@
                                 name: '温度 (°C)',
                                 line: { color: '#e74c3c', width: 3 },
                                 marker: { size: 4 },
-                                yaxis: 'y1'
+                                yaxis: 'y1',
+                                customdata: labels,
+                                hovertemplate: '%{customdata}<br>温度: %{y:.1f}°C<extra></extra>'
                             });
                         }
 
@@ -405,7 +407,9 @@
                                     color: barColors,
                                     opacity: 0.8
                                 },
-                                yaxis: 'y2'
+                                yaxis: 'y2',
+                                customdata: labels,
+                                hovertemplate: '%{customdata}<br>降水: %{y:.1f} mm<extra></extra>'
                             });
                         }
 
@@ -418,28 +422,55 @@
                                 mode: 'lines',
                                 name: '湿度 (%)',
                                 line: { color: '#9b59b6', width: 2, dash: 'dash' },
-                                yaxis: 'y3'
+                                yaxis: 'y3',
+                                customdata: labels,
+                                hovertemplate: '%{customdata}<br>湿度: %{y:.0f}%<extra></extra>'
                             });
                         }
 
                         // 4. 天况图标（橙色）- 新增
                         if (document.getElementById('weather_icons').checked && data.data.weather_emoji) {
+                            const isNight = (ts) => {
+                                try {
+                                    const hh = parseInt(String(ts).slice(11, 13), 10);
+                                    return hh >= 19 || hh <= 6;
+                                } catch (e) {
+                                    return false;
+                                }
+                            };
+
+                            const moonify = (emoji, ts) => {
+                                const e = String(emoji || '');
+                                if (!isNight(ts)) return e;
+                                const hasSun = e.includes('☀') || e.includes('🌞') || e.includes('🌤') || e.includes('🌥') || e.includes('⛅') || e.includes('🌦');
+                                if (!hasSun) return e;
+                                const cloudySun = e.includes('⛅') || e.includes('🌤') || e.includes('🌥') || e.includes('🌦');
+                                return cloudySun ? '🌙☁️' : '🌙';
+                            };
+
+                            const iconX = [];
+                            const iconY = [];
+                            const iconText = [];
+                            const iconHover = [];
+                            for (let i = 0; i < maxPoints; i += 6) {
+                                iconX.push(labels[i]);
+                                const baseY = data.data.temperature_2m && data.data.temperature_2m[i] != null ? (data.data.temperature_2m[i] + 2) : 25;
+                                iconY.push(baseY);
+                                iconText.push(moonify(data.data.weather_emoji[i], labels[i]));
+                                iconHover.push(data.data.weather_name && data.data.weather_name[i] ? data.data.weather_name[i] : '');
+                            }
                             traces.push({
-                                x: labels.filter((_, i) => i % 6 === 0), // 每6小时显示一个图标
-                                y: data.data.temperature_2m
-                                    ? data.data.temperature_2m.filter((_, i) => i % 6 === 0).map(t => t + 2)
-                                    : Array(Math.ceil(maxPoints/6)).fill(25),
+                                x: iconX,
+                                y: iconY,
                                 type: 'scatter',
                                 mode: 'text',
                                 name: '天况',
-                                text: data.data.weather_emoji.filter((_, i) => i % 6 === 0),
+                                text: iconText,
                                 textposition: 'top center',
                                 textfont: { size: 20 },
                                 showlegend: false,
                                 hoverinfo: 'text',
-                                hovertext: data.data.weather_name
-                                    ? data.data.weather_name.filter((_, i) => i % 6 === 0)
-                                    : []
+                                hovertext: iconHover
                             });
                         }
 
@@ -452,7 +483,9 @@
                                 mode: 'lines',
                                 name: '风速 (km/h)',
                                 line: { color: '#2ecc71', width: 2 },
-                                yaxis: 'y4'
+                                yaxis: 'y4',
+                                customdata: labels,
+                                hovertemplate: '%{customdata}<br>风速: %{y:.1f} km/h<extra></extra>'
                             });
                         }
 
@@ -481,6 +514,7 @@
                             title: '未来72小时精细化预报',
                             xaxis: {
                                 title: '日期时间',
+                                type: 'category',
                                 tickangle: 45,
                                 gridcolor: '#f0f0f0',
                                 tickmode: 'array',
@@ -836,6 +870,9 @@
                         const tempMaxs = summaryData.map(d => d.temp_max);
                         const tempLowers = summaryData.map(d => d.temp_lower);
                         const tempUppers = summaryData.map(d => d.temp_upper);
+                        const precipTotals = summaryData.map(d => d.precip_total);
+                        const precipLowers = summaryData.map(d => d.precip_lower);
+                        const precipUppers = summaryData.map(d => d.precip_upper);
 
                         const tempCtx = document.getElementById('tenDayTrendChart').getContext('2d');
 
@@ -933,17 +970,23 @@
                             options: {
                                 responsive: true,
                                 plugins: {
-                                    title: { display: true, text: '未来7天温度趋势' },
+                                    title: { display: true, text: '未来7天趋势' },
                                     tooltip: {
                                         callbacks: {
                                             title: ctx => dates[ctx[0].dataIndex],
                                             label: ctx => {
                                                 const i = ctx.dataIndex;
+                                                const pl = precipLowers[i];
+                                                const pu = precipUppers[i];
+                                                const pLine = (pl != null && pu != null)
+                                                    ? `降水置信范围: ${Number(pl).toFixed(1)}~${Number(pu).toFixed(1)}mm`
+                                                    : (precipTotals[i] != null ? `降水预报: ${Number(precipTotals[i]).toFixed(1)}mm` : null);
                                                 return [
                                                     `主报平均: ${tempAvgs[i].toFixed(1)}°C`,
                                                     `预报范围: ${tempMins[i].toFixed(1)}~${tempMaxs[i].toFixed(1)}°C`,
-                                                    `置信区间: ${tempLowers[i].toFixed(1)}~${tempUppers[i].toFixed(1)}°C`
-                                                ];
+                                                    `置信区间: ${tempLowers[i].toFixed(1)}~${tempUppers[i].toFixed(1)}°C`,
+                                                    pLine
+                                                ].filter(Boolean);
                                             }
                                         }
                                     }
