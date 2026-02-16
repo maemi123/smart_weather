@@ -24,8 +24,10 @@
         </a>
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="/">实时天气</a></li>
-                <li class="nav-item"><a class="nav-link" href="/forecast">智能预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
+                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">专业预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/upperair">探空分析</a></li>
+                <li class="nav-item"><a class="nav-link" href="/agro-dashboard">农业气象</a></li>
                 <li class="nav-item"><a class="nav-link" href="/history/yearly">历史分析</a></li>
                 <li class="nav-item"><a class="nav-link active" href="/history/trend">趋势分析</a></li>
             </ul>
@@ -89,7 +91,29 @@
             <h5 class="mb-0 text-warning"><i class="fas fa-bolt me-2"></i>极端天气频次</h5>
         </div>
         <div class="card-body">
-            <p class="text-muted mb-3">统计定义：高温日(Tmax≥35°C)，低温日(Tmin≤0°C)，降雪日(出现降雪)</p>
+            <p class="text-muted mb-2">统计定义：高温日(Tmax≥35°C)，低温日(Tmin≤0°C)，暴雨日(日降水≥50mm)，雷暴日(出现雷暴/雷雨，2014年后缺失记录)，降雪日(出现固态降水)</p>
+            <div class="d-flex flex-wrap gap-3 mb-3">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="extremeToggleHot" checked>
+                    <label class="form-check-label" for="extremeToggleHot">高温日</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="extremeToggleCold" checked>
+                    <label class="form-check-label" for="extremeToggleCold">低温日</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="extremeToggleHeavyRain" checked>
+                    <label class="form-check-label" for="extremeToggleHeavyRain">暴雨日</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="extremeToggleThunder" checked>
+                    <label class="form-check-label" for="extremeToggleThunder">雷暴日</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="extremeToggleSnow" checked>
+                    <label class="form-check-label" for="extremeToggleSnow">降雪日</label>
+                </div>
+            </div>
             <div id="extremeTrendChart" style="height: 400px;"></div>
         </div>
     </div>
@@ -99,7 +123,7 @@
 <!-- 页脚 -->
 <footer class="bg-dark text-white py-4 mt-5">
     <div class="container text-center">
-        <p class="mb-0">&copy; 2024 智能天气分析系统 | Powered by Flask & Plotly</p>
+        <p class="mb-0">&copy; 2026 智能天气分析系统 | Powered by Flask & Plotly</p>
     </div>
 </footer>
 
@@ -181,6 +205,22 @@
         name: '低温日数',
         marker: {color: '#3498db'}
     };
+
+    const heavyRainTrace = {
+        x: {{ extreme_data['years'] | tojson }},
+        y: {{ extreme_data['heavy_rain_days'] | tojson }},
+        type: 'bar',
+        name: '暴雨日数',
+        marker: {color: '#c0392b'}
+    };
+
+    const thunderTrace = {
+        x: {{ extreme_data['years'] | tojson }},
+        y: {{ extreme_data['thunder_days'] | tojson }},
+        type: 'bar',
+        name: '雷暴日数',
+        marker: {color: '#8e44ad'}
+    };
     
     const snowTrace = {
         x: {{ extreme_data['years'] | tojson }},
@@ -191,13 +231,36 @@
         line: {color: '#95a5a6', width: 2}
     };
 
-    Plotly.newPlot('extremeTrendChart', [hotTrace, coldTrace, snowTrace], {
+    Plotly.newPlot('extremeTrendChart', [hotTrace, coldTrace, heavyRainTrace, thunderTrace, snowTrace], {
         title: '极端天气日数统计',
         barmode: 'group',
         xaxis: {title: '年份'},
         yaxis: {title: '天数'},
         hovermode: 'x unified'
-    });
+    }).then(() => {
+        const chartId = 'extremeTrendChart';
+
+        const applyVisibility = () => {
+            const visibleHot = document.getElementById('extremeToggleHot').checked ? true : 'legendonly';
+            const visibleCold = document.getElementById('extremeToggleCold').checked ? true : 'legendonly';
+            const visibleHeavyRain = document.getElementById('extremeToggleHeavyRain').checked ? true : 'legendonly';
+            const visibleThunder = document.getElementById('extremeToggleThunder').checked ? true : 'legendonly';
+            const visibleSnow = document.getElementById('extremeToggleSnow').checked ? true : 'legendonly';
+
+            Plotly.restyle(chartId, {visible: visibleHot}, [0]);
+            Plotly.restyle(chartId, {visible: visibleCold}, [1]);
+            Plotly.restyle(chartId, {visible: visibleHeavyRain}, [2]);
+            Plotly.restyle(chartId, {visible: visibleThunder}, [3]);
+            Plotly.restyle(chartId, {visible: visibleSnow}, [4]);
+        };
+
+        document.getElementById('extremeToggleHot').addEventListener('change', applyVisibility);
+        document.getElementById('extremeToggleCold').addEventListener('change', applyVisibility);
+        document.getElementById('extremeToggleHeavyRain').addEventListener('change', applyVisibility);
+        document.getElementById('extremeToggleThunder').addEventListener('change', applyVisibility);
+        document.getElementById('extremeToggleSnow').addEventListener('change', applyVisibility);
+        applyVisibility();
+    })
 </script>
 
 </body>

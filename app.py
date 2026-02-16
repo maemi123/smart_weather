@@ -1530,7 +1530,9 @@ def history_trend():
             'years': years,
             'hot_days': [d['hot_days'] for d in series],
             'cold_days': [d['cold_days'] for d in series],
-            'snow_days': [d['snow_days'] for d in series]
+            'snow_days': [d['snow_days'] for d in series],
+            'heavy_rain_days': [d.get('heavy_rain_days', 0) for d in series],
+            'thunder_days': [d.get('thunder_days', 0) for d in series]
         }
         
         return render_template('history_trend.html',

@@ -193,39 +193,44 @@ class HistoryAnalyzer:
 
                 # 6.3 优化后的降水计算逻辑：层级优先策略
                 # 解决2020年后可能出现的重复统计问题
-                temp_precip = df[['date', 'precip_raw', 'precip_hours']].copy()
-                
-                def calculate_daily_precip(group):
-                    # 策略1：优先寻找24小时累计值
-                    mask_24h = group['precip_hours'] == 24
-                    if mask_24h.any():
-                        return group.loc[mask_24h, 'precip_raw'].sum()
-                        
-                    # 策略2：寻找12小时累计值（通常覆盖全天需要2条）
-                    mask_12h = group['precip_hours'] == 12
-                    if mask_12h.sum() >= 1:
-                        # 如果有12小时记录，优先使用它们
-                        # 假设一天最多2条12小时记录能覆盖全天
-                        return group.loc[mask_12h, 'precip_raw'].sum()
-                    
-                    # 策略3：寻找6小时累计值
-                    mask_6h = group['precip_hours'] == 6
-                    if mask_6h.sum() >= 1:
-                        return group.loc[mask_6h, 'precip_raw'].sum()
-                        
-                    # 策略4：寻找3小时累计值
-                    mask_3h = group['precip_hours'] == 3
-                    if mask_3h.sum() >= 1:
-                        return group.loc[mask_3h, 'precip_raw'].sum()
-                        
-                    # 策略5：最后尝试所有记录求和（1小时或其他）
-                    # 但为了防止极端异常（如每小时都有记录导致加了24次），做个简单检查
-                    total = group['precip_raw'].sum()
-                    # 如果一天降水超过500mm且不是台风天，可能是重复计算，但这里很难判断
-                    # 我们假设如果没有上述长时段记录，那么这些短时段记录就是互斥的
-                    return total
+                temp_precip = df[['date', 'hour', 'precip_raw', 'precip_hours']].copy()
+                temp_precip['hour'] = pd.to_numeric(temp_precip['hour'], errors='coerce')
+                temp_precip = temp_precip.dropna(subset=['hour'])
+                temp_precip['hour'] = temp_precip['hour'].astype(int)
 
-                daily_precip = temp_precip.groupby('date').apply(calculate_daily_precip).reset_index()
+                canonical_offsets = {6: 5, 12: 2}
+
+                def calculate_daily_precip(group):
+                    g = group.drop_duplicates(subset=['hour'])
+                    for p in [6, 12, 24, 3, 1]:
+                        sub = g[g['precip_hours'] == p]
+                        if sub.empty:
+                            continue
+
+                        if p == 24:
+                            return float(sub['precip_raw'].max())
+
+                        offsets = (sub['hour'] % p).value_counts()
+                        if offsets.empty:
+                            continue
+
+                        best_count = int(offsets.max())
+                        best_offsets = sorted([int(k) for k, v in offsets.items() if int(v) == best_count])
+                        if not best_offsets:
+                            continue
+
+                        chosen_offset = canonical_offsets[p] if p in canonical_offsets and canonical_offsets[p] in best_offsets else best_offsets[0]
+
+                        picked = sub[sub['hour'] % p == chosen_offset].sort_values('hour')
+                        expected = (24 // p) if (24 % p == 0) else None
+                        if expected is not None and len(picked) > expected:
+                            picked = picked.head(expected)
+
+                        return float(picked['precip_raw'].sum())
+
+                    return float(g['precip_raw'].sum())
+
+                daily_precip = temp_precip.groupby('date').apply(calculate_daily_precip, include_groups=False).reset_index()
                 daily_precip.columns = ['date', 'precipitation_corrected']
 
                 # 6.4 合并回原数据 (注意去重)
@@ -329,7 +334,9 @@ class HistoryAnalyzer:
                 "hot_days": stats.get("hot_days", 0),
                 "cold_days": stats.get("cold_days", 0),
                 "rainy_days": stats.get("rainy_days", 0),
-                "snow_days": stats.get("snow_days", 0)
+                "snow_days": stats.get("snow_days", 0),
+                "heavy_rain_days": stats.get("heavy_rain_days", 0),
+                "thunder_days": stats.get("thunder_days", 0)
             })
             
         # 计算线性回归趋势 (简单最小二乘法)
@@ -404,30 +411,36 @@ class HistoryAnalyzer:
             stats["max_daily_precip"] = 0.0
 
         # 3. 降雪日数 (替代积雪日数)
-        # 逻辑：检查天气现象代码(weather_current/weather_past1)
-        # 代码 70-79: 固态降水; 85-86: 雪阵雨
-        # 修正：排除雨夹雪(68-69, 83-84)或仅包含纯雪，视标准而定。通常气象上降雪日包含雨夹雪。
-        # 但用户反馈偏高，可能误判了陈旧积雪或其他。
-        # 这里采用更严格的文本匹配，如果WW列是文本
         snow_days_count = 0
-        if 'weather_current' in data.columns:
-            # 提取包含雪的描述或代码
-            # 严格关键词匹配：排除 "without snow" (无雪), "melting snow" (融雪) 等干扰词
-            # 常见 RP5 描述: "Snow", "Snowfall", "Sleet" (雨夹雪)
-            
-            # 按天聚合，只要当天出现过降雪相关词汇即算
-            daily_weather = data.groupby('date')['weather_current'].apply(lambda x: ' '.join([str(v) for v in x]).lower())
-            
-            for day_weather in daily_weather:
-                # 排除 "ground without snow", "no snow" 等
-                # 确认有 "snow" 且不是 "no snow" 等否定词
-                # 简单起见，匹配 "snow" 且排除 "without snow"
-                if 'snow' in day_weather and 'without snow' not in day_weather:
+        snow_cols = [c for c in ['weather_current', 'weather_past1', 'weather_past2'] if c in data.columns]
+        if snow_cols:
+            daily_weather = (
+                data.groupby('date')[snow_cols]
+                .agg(lambda s: ' '.join([str(v) for v in s if pd.notna(v)]))
+                .fillna('')
+                .apply(lambda row: ' '.join([str(v) for v in row]), axis=1)
+            )
+            daily_temp_min = None
+            if 'temperature' in data.columns:
+                daily_temp_min = data.groupby('date')['temperature'].min()
+
+            for day, day_weather in daily_weather.items():
+                text = str(day_weather)
+                if '雪' in text and '无雪' not in text and '未见雪' not in text:
+                    if daily_temp_min is not None:
+                        tmin = daily_temp_min.get(day)
+                        if pd.notna(tmin) and float(tmin) > 5:
+                            continue
                     snow_days_count += 1
-                elif 'sleet' in day_weather: # 雨夹雪
-                    snow_days_count += 1
-            
+
             stats["snow_days"] = int(snow_days_count)
+
+            thunder_days_count = 0
+            for day, day_weather in daily_weather.items():
+                text = str(day_weather)
+                if '雷' in text or 'thunder' in text.lower():
+                    thunder_days_count += 1
+            stats["thunder_days"] = int(thunder_days_count)
         elif 'snow_depth' in data.columns:
             # 回退方案
             snow_daily = data.groupby('date')['snow_depth'].max()
@@ -436,6 +449,7 @@ class HistoryAnalyzer:
         else:
             stats["snow_days"] = 0
             stats["max_snow_depth"] = 0.0
+            stats["thunder_days"] = 0
 
         # 4. 风速统计
         if 'wind_speed' in data.columns:
