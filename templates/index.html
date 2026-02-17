@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能天气仪表盘</title>
+    <title>智慧天气</title>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <script>
         (function () {
             function loadScript(src) {
@@ -31,17 +32,16 @@
     <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.9.1/chart.min.js"
             onerror="window.__ensureChartJs && window.__ensureChartJs()"></script>
     <style>
-        body { background: #f5f7fa; }
-        .card-soft { border: 0; border-radius: 12px; box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08); }
-        .nav-card { transition: transform .12s ease, box-shadow .12s ease; cursor: pointer; }
-        .nav-card:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(16, 24, 40, 0.12); }
-        .muted { color: #6b7280; }
-        .brand { color: #2c3e50; }
-        .brand-dot { width: 10px; height: 10px; background: #3498db; border-radius: 50%; display: inline-block; }
+        .card-soft { border: 0; border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
+        .nav-card { transition: transform .2s ease, box-shadow .2s ease; cursor: pointer; }
+        .nav-card:hover { transform: translateY(-3px); box-shadow: var(--card-shadow-hover); }
+        .muted { color: var(--text-secondary); }
+        .brand { color: var(--text-primary); }
+        .brand-dot { width: 10px; height: 10px; background: var(--primary-color); border-radius: 50%; display: inline-block; }
         .weather-hero { min-height: 150px; color: #0b1b2a; }
         .weather-icon { font-size: 44px; line-height: 1; }
         .weather-temp { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; }
-        .metric-pill { background: rgba(255,255,255,0.75); border: 1px solid rgba(52,152,219,0.18); border-radius: 999px; padding: 6px 10px; }
+        .metric-pill { background: rgba(255,255,255,0.75); border: 1px solid rgba(30,136,229,0.18); border-radius: 999px; padding: 6px 10px; }
         .skeleton { background: linear-gradient(90deg, rgba(229,231,235,0.6), rgba(229,231,235,1), rgba(229,231,235,0.6)); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         .w-180 { width: 180px; }
@@ -51,21 +51,37 @@
         .tip-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .tip-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
         .tip-content { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .nav-card .fs-4 { color: var(--text-primary); }
+        .nav-card .btn-outline-primary { color: var(--primary-color); border-color: var(--primary-color); }
+        .nav-card:hover .btn-outline-primary { background-color: var(--primary-color); color: white; }
     </style>
 </head>
-<body>
+<body class="theme-home">
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
-    <div class="container py-2">
-        <a class="navbar-brand fw-bold brand" href="/">
-            <span class="brand-dot me-2"></span>智能天气系统
+<!-- 统一导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-cloud-sun"></i>智慧天气
         </a>
-        <div class="ms-auto d-flex align-items-center gap-3">
-            <div class="small muted">
-                <i class="fas fa-location-dot me-1 text-primary"></i><span id="cityName">{{ city }}</span>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link active" href="/">首页</a></li>
+                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">多模式预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/upperair">探空分析</a></li>
+                <li class="nav-item"><a class="nav-link" href="/agro-dashboard">农业气象</a></li>
+                <li class="nav-item"><a class="nav-link" href="/history/yearly">历史气候</a></li>
+            </ul>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-3 d-none d-md-flex">
+            <div class="small" style="color: var(--text-secondary);">
+                <i class="fas fa-location-dot me-1" style="color: var(--primary-color);"></i><span id="cityName">{{ city }}</span>
             </div>
-            <div class="small muted">
-                <i class="far fa-clock me-1 text-primary"></i>最后更新时间：<span id="navLastUpdate">--:--</span>
+            <div class="small" style="color: var(--text-secondary);">
+                <i class="far fa-clock me-1" style="color: var(--primary-color);"></i><span id="navLastUpdate">--:--</span>
             </div>
         </div>
     </div>
@@ -75,7 +91,7 @@
     <div class="row g-4">
         <div class="col-12">
             <div class="card card-soft">
-                <div class="card-body p-4 weather-hero" id="weatherCard" style="background: linear-gradient(135deg, rgba(52,152,219,0.16), rgba(255,255,255,1));">
+                <div class="card-body p-4 weather-hero" id="weatherCard" style="background: linear-gradient(135deg, rgba(30,136,229,0.15), rgba(255,255,255,1));">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                         <div class="d-flex align-items-center gap-3">
                             <div class="weather-icon" id="weatherIcon">⛅</div>
@@ -93,7 +109,7 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <div class="fw-bold"><i class="fas fa-location-dot me-1 text-primary"></i>{{ city }}</div>
+                            <div class="fw-bold"><i class="fas fa-location-dot me-1" style="color: var(--primary-color);"></i>{{ city }}</div>
                             <div class="small muted mt-1">更新 <span id="updateTimeText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
                             <div class="small mt-3 d-none text-danger" id="weatherError"><i class="fas fa-circle-exclamation me-1"></i>实时天气加载失败</div>
                         </div>
@@ -114,7 +130,7 @@
                                         <div class="muted mt-1">ECMWF / GFS</div>
                                         <div class="small muted mt-2">7天预报 · 逐小时</div>
                                     </div>
-                                    <div class="text-primary"><i class="fas fa-chevron-right"></i></div>
+                                    <div style="color: var(--primary-color);"><i class="fas fa-chevron-right"></i></div>
                                 </div>
                                 <div class="btn btn-sm btn-outline-primary mt-3">查看详情 →</div>
                             </div>
@@ -131,7 +147,7 @@
                                         <div class="muted mt-1">CAPE / K指数 / 强对流</div>
                                         <div class="small muted mt-2">多维诊断 · AI解读</div>
                                     </div>
-                                    <div class="text-primary"><i class="fas fa-chevron-right"></i></div>
+                                    <div style="color: var(--primary-color);"><i class="fas fa-chevron-right"></i></div>
                                 </div>
                                 <div class="btn btn-sm btn-outline-primary mt-3">查看详情 →</div>
                             </div>
@@ -148,7 +164,7 @@
                                         <div class="muted mt-1">作物积温 / 农事提醒</div>
                                         <div class="small muted mt-2">7天风险 · 适宜度</div>
                                     </div>
-                                    <div class="text-primary"><i class="fas fa-chevron-right"></i></div>
+                                    <div style="color: var(--primary-color);"><i class="fas fa-chevron-right"></i></div>
                                 </div>
                                 <div class="btn btn-sm btn-outline-primary mt-3">查看详情 →</div>
                             </div>
@@ -165,7 +181,7 @@
                                         <div class="muted mt-1">RP5 / 17年趋势</div>
                                         <div class="small muted mt-2">年度对比 · 长期变化</div>
                                     </div>
-                                    <div class="text-primary"><i class="fas fa-chevron-right"></i></div>
+                                    <div style="color: var(--primary-color);"><i class="fas fa-chevron-right"></i></div>
                                 </div>
                                 <div class="btn btn-sm btn-outline-primary mt-3">查看详情 →</div>
                             </div>
@@ -179,8 +195,8 @@
             <div class="card card-soft">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center justify-content-between">
-                        <div class="fw-bold"><i class="fas fa-bell me-2 text-primary"></i>今日智能提醒</div>
-                        <a class="small text-decoration-none text-primary" href="#" id="tipsMoreLink">查看全部</a>
+                        <div class="fw-bold" style="color: var(--text-primary);"><i class="fas fa-bell me-2" style="color: var(--primary-color);"></i>今日智能提醒</div>
+                        <a class="small text-decoration-none" href="#" id="tipsMoreLink" style="color: var(--primary-color);">查看全部</a>
                     </div>
                     <div class="mt-3" id="tipsBox">
                         <div class="skeleton w-260" style="height: 18px;"></div>
@@ -199,7 +215,7 @@
                 <div class="col-12 col-lg-6">
                     <div class="card card-soft h-100">
                         <div class="card-body p-4">
-                            <div class="fw-bold"><i class="fas fa-temperature-half me-2 text-primary"></i>未来7天温度与降水</div>
+                            <div class="fw-bold" style="color: var(--text-primary);"><i class="fas fa-temperature-half me-2" style="color: var(--primary-color);"></i>未来7天温度与降水</div>
                             <div class="mt-3" style="height: 260px;">
                                 <canvas id="temp7dChart"></canvas>
                             </div>
@@ -210,7 +226,7 @@
                 <div class="col-12 col-lg-6">
                     <div class="card card-soft h-100">
                         <div class="card-body p-4">
-                            <div class="fw-bold"><i class="fas fa-cloud-rain me-2 text-primary"></i>过去30天降水与温度</div>
+                            <div class="fw-bold" style="color: var(--text-primary);"><i class="fas fa-cloud-rain me-2" style="color: var(--primary-color);"></i>过去30天降水与温度</div>
                             <div class="mt-3" style="height: 260px;">
                                 <canvas id="precip30dChart"></canvas>
                             </div>
@@ -225,12 +241,12 @@
             <div class="card card-soft">
                 <div class="card-body p-4">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="fw-bold"><i class="fas fa-gauge-high me-2 text-primary"></i>模块状态</div>
-                        <div class="small muted">最后更新：<span id="moduleLastUpdate">--</span></div>
+                        <div class="fw-bold" style="color: var(--text-primary);"><i class="fas fa-gauge-high me-2" style="color: var(--primary-color);"></i>模块状态</div>
+                        <div class="small" style="color: var(--text-secondary);">最后更新：<span id="moduleLastUpdate">--</span></div>
                     </div>
                     <div class="row g-2 mt-3" id="moduleStatusGrid">
                         <div class="col-12 col-md-6 col-lg-3">
-                            <div class="p-3 rounded-3 border bg-white">
+                            <div class="p-3 rounded-3 border" style="background: var(--card-bg);">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="fw-bold">📊 多模式预报</div>
                                     <div class="skeleton w-80" style="height: 16px;"></div>
@@ -239,7 +255,7 @@
                             </div>
                         </div>
                         <div class="col-12 col-md-6 col-lg-3">
-                            <div class="p-3 rounded-3 border bg-white">
+                            <div class="p-3 rounded-3 border" style="background: var(--card-bg);">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="fw-bold">🎈 探空分析</div>
                                     <div class="skeleton w-80" style="height: 16px;"></div>
@@ -248,7 +264,7 @@
                             </div>
                         </div>
                         <div class="col-12 col-md-6 col-lg-3">
-                            <div class="p-3 rounded-3 border bg-white">
+                            <div class="p-3 rounded-3 border" style="background: var(--card-bg);">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="fw-bold">🌾 农业气象</div>
                                     <div class="skeleton w-80" style="height: 16px;"></div>
@@ -257,7 +273,7 @@
                             </div>
                         </div>
                         <div class="col-12 col-md-6 col-lg-3">
-                            <div class="p-3 rounded-3 border bg-white">
+                            <div class="p-3 rounded-3 border" style="background: var(--card-bg);">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="fw-bold">📈 历史气候</div>
                                     <div class="skeleton w-80" style="height: 16px;"></div>
@@ -282,9 +298,9 @@
         if ([45,48].includes(c)) return { icon: '🌫️', bg: 'linear-gradient(135deg, rgba(176,196,222,0.28), rgba(255,255,255,1))' };
         if (c >= 51 && c <= 55) return { icon: '🌧️', bg: 'linear-gradient(135deg, rgba(70,130,180,0.28), rgba(255,255,255,1))' };
         if (c >= 61 && c <= 65) return { icon: '🌧️', bg: 'linear-gradient(135deg, rgba(65,105,225,0.22), rgba(255,255,255,1))' };
-        if (c >= 71 && c <= 75) return { icon: '❄️', bg: 'linear-gradient(135deg, rgba(255,255,255,1), rgba(52,152,219,0.10))' };
+        if (c >= 71 && c <= 75) return { icon: '❄️', bg: 'linear-gradient(135deg, rgba(255,255,255,1), rgba(30,136,229,0.10))' };
         if (c >= 95 && c <= 99) return { icon: '⛈️', bg: 'linear-gradient(135deg, rgba(75,0,130,0.22), rgba(255,255,255,1))' };
-        return { icon: '⛅', bg: 'linear-gradient(135deg, rgba(52,152,219,0.16), rgba(255,255,255,1))' };
+        return { icon: '⛅', bg: 'linear-gradient(135deg, rgba(30,136,229,0.15), rgba(255,255,255,1))' };
     }
 
     function fmtNum(v, digits=1) {
@@ -475,7 +491,7 @@
                 const detail = m.detail || '--';
                 return `
                     <div class="col-12 col-md-6 col-lg-3">
-                        <div class="p-3 rounded-3 border bg-white">
+                        <div class="p-3 rounded-3 border" style="background: var(--card-bg);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div class="fw-bold">${it.title}</div>
                                 <div class="${b.cls} fw-bold">${b.text}</div>

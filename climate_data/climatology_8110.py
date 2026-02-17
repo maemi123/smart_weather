@@ -54,7 +54,7 @@ HANGZHOU_8110_CLIMATOLOGY = {
         "avg_tmax": 21.8,  # 年平均最高温
         "avg_tmin": 13.1,  # 年平均最低温
         "rainy_days": 155,  # 年降水日数 (日降水≥0.1mm)
-        "snow_days": 6.2,  # 年积雪日数
+        "snow_days": 7.4,  # 年积雪日数
         "frost_days": 35,  # 年霜冻日数
         "hot_days": 38,  # 年高温日数 (Tmax≥35°C)
         "sunshine_hours": 1765,  # 年日照时数
@@ -65,10 +65,10 @@ HANGZHOU_8110_CLIMATOLOGY = {
     # 极端气候值
     "extremes": {
         "max_temp_record": 41.6,  # 极端最高气温 (°C)
-        "min_temp_record": -9.6,  # 极端最低气温
+        "min_temp_record": -8.6,  # 极端最低气温
         "max_daily_precip": 246.4,  # 最大日降水量 (mm)
-        "max_snow_depth": 25,  # 最大积雪深度 (cm)
-        "max_wind_speed": 28.0,  # 最大风速 (m/s)
+        "max_snow_depth": 31,  # 最大积雪深度 (cm)
+        "max_wind_speed": 33.0,  # 最大风速 (m/s)
     }
 }
 

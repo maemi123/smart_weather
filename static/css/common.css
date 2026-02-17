@@ -1,0 +1,261 @@
+/* ============================================
+   智慧天气系统 - 公共样式
+   统一UI风格设计规范
+   ============================================ */
+
+/* CSS变量定义 */
+:root {
+    /* 主色调 */
+    --primary-color: #1E88E5;
+    --primary-light: #42A5F5;
+    --primary-dark: #1565C0;
+    
+    /* 背景色 */
+    --bg-color: #F5F7FA;
+    --card-bg: #FFFFFF;
+    --nav-bg: #FFFFFF;
+    
+    /* 文字色 */
+    --text-primary: #2C3E50;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    
+    /* 边框色 */
+    --border-color: #E5E7EB;
+    --border-light: #F3F4F6;
+    
+    /* 模块主题色 */
+    --home-theme: #1E88E5;
+    --forecast-theme: #42A5F5;
+    --history-theme: #FF8F00;
+    --upperair-theme: #5E35B1;
+    --agro-theme: #43A047;
+    
+    /* 组件规范 */
+    --card-radius: 12px;
+    --btn-radius: 8px;
+    --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --card-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
+    --nav-height: 60px;
+    --container-max-width: 1400px;
+    
+    /* 字体 */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+/* 基础样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* 统一导航栏样式 */
+.navbar-custom {
+    background-color: var(--nav-bg) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    height: var(--nav-height);
+    padding: 0;
+}
+
+.navbar-custom .container {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-custom .navbar-brand {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--text-primary) !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.navbar-custom .navbar-brand i {
+    color: var(--primary-color);
+}
+
+.navbar-custom .nav-link {
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+    padding: 8px 16px !important;
+    border-radius: var(--btn-radius);
+    transition: all 0.2s ease;
+    margin: 0 2px;
+}
+
+.navbar-custom .nav-link:hover {
+    color: var(--primary-color) !important;
+    background-color: rgba(30, 136, 229, 0.08);
+}
+
+.navbar-custom .nav-link.active {
+    color: var(--primary-color) !important;
+    background-color: rgba(30, 136, 229, 0.12);
+    font-weight: 600;
+}
+
+/* 统一卡片样式 */
+.card-custom {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.card-custom:hover {
+    box-shadow: var(--card-shadow-hover);
+}
+
+/* 统一按钮样式 */
+.btn-custom {
+    border-radius: var(--btn-radius);
+    font-weight: 600;
+    padding: 10px 20px;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.btn-custom-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-custom-primary:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.btn-custom-outline {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.btn-custom-outline:hover {
+    background-color: rgba(30, 136, 229, 0.08);
+}
+
+/* 统一容器 */
+.container-custom {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 页面标题样式 */
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.page-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* 图表容器 */
+.chart-container {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* 数据卡片 */
+.metric-card {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 10px 0;
+}
+
+.metric-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* 标签页样式 */
+.tab-custom {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.tab-btn-custom {
+    padding: 10px 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.tab-btn-custom:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.tab-btn-custom.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* 模块特定主题色类 */
+.theme-home { --theme-color: var(--home-theme); }
+.theme-forecast { --theme-color: var(--forecast-theme); }
+.theme-history { --theme-color: var(--history-theme); }
+.theme-upperair { --theme-color: var(--upperair-theme); }
+.theme-agro { --theme-color: var(--agro-theme); }
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    :root {
+        --card-radius: 10px;
+    }
+    
+    .container-custom {
+        padding: 15px;
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    .navbar-custom {
+        height: auto;
+        padding: 10px 0;
+    }
+}

@@ -45,7 +45,7 @@ HANGZHOU_9120_CLIMATOLOGY = {
         "avg_tmax": 22.8,
         "avg_tmin": 14.5,
         "rainy_days": 158,
-        "snow_days": 4.5,            # 减少
+        "snow_days": 6.5,            # 减少
         "frost_days": 28,            # 减少
         "hot_days": 45,              # 显著增加
         "sunshine_hours": 1750,

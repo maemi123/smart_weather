@@ -148,7 +148,7 @@ class AdvancedForecastService:
                        "wind_speed_10m,wind_direction_10m,pressure_msl,"
                        "cloud_cover,weather_code,visibility,uv_index"),
             "forecast_days": 4,  # 获取4天确保有72小时数据
-            "models": "best_match",
+            "models": "ecmwf_ifs",
             "timezone": "Asia/Shanghai"
         }
 

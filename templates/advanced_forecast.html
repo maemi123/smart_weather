@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>专业气象预报系统 - 杭州</title>
+    <title>智慧天气丨多模式预报</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -14,44 +17,47 @@
         }
 
         body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: #333;
+            font-family: var(--font-family);
+            background: var(--bg-color);
+            color: var(--text-primary);
             line-height: 1.6;
-            padding: 20px;
+            padding: 0;
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 1400px;
+        .main-container {
+            max-width: var(--container-max-width);
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
             padding: 30px;
+            margin-top: 20px;
+            margin-bottom: 20px;
         }
 
-        .header {
+        .page-header {
             text-align: center;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 3px solid #3498db;
+            border-bottom: 3px solid var(--forecast-theme);
         }
 
-        .header h1 {
-            color: #2c3e50;
+        .page-header h1 {
+            color: var(--text-primary);
             font-size: 2.5em;
             margin-bottom: 10px;
-            background: linear-gradient(45deg, #3498db, #2c3e50);
+            background: linear-gradient(45deg, var(--forecast-theme), var(--text-primary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .header .subtitle {
-            color: #7f8c8d;
+        .page-header .subtitle {
+            color: var(--text-secondary);
             font-size: 1.1em;
         }
 
+        /* 使用公共导航栏样式 */
         .module-nav {
             display: flex;
             flex-wrap: wrap;
@@ -64,15 +70,15 @@
             text-decoration: none;
             padding: 8px 14px;
             border-radius: 999px;
-            border: 1px solid rgba(52, 152, 219, 0.25);
-            background: rgba(52, 152, 219, 0.08);
-            color: #2c3e50;
+            border: 1px solid rgba(66, 165, 245, 0.25);
+            background: rgba(66, 165, 245, 0.08);
+            color: var(--text-primary);
             font-weight: 600;
             transition: all 0.2s ease;
         }
 
         .module-nav a:hover {
-            background: rgba(52, 152, 219, 0.16);
+            background: rgba(66, 165, 245, 0.16);
             transform: translateY(-1px);
         }
 
@@ -85,25 +91,27 @@
 
         .tab-btn {
             padding: 12px 24px;
-            background: #ecf0f1;
-            border: none;
-            border-radius: 10px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--btn-radius);
             cursor: pointer;
             font-size: 16px;
             font-weight: 600;
-            color: #34495e;
+            color: var(--text-secondary);
             transition: all 0.3s ease;
         }
 
         .tab-btn:hover {
-            background: #d5dbdb;
+            border-color: var(--forecast-theme);
+            color: var(--forecast-theme);
             transform: translateY(-2px);
         }
 
         .tab-btn.active {
-            background: #3498db;
+            background: var(--forecast-theme);
             color: white;
-            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            border-color: var(--forecast-theme);
+            box-shadow: 0 4px 15px rgba(66, 165, 245, 0.3);
         }
 
         .tab-content {
@@ -121,15 +129,15 @@
         }
 
         .section {
-            background: #f8f9fa;
-            border-radius: 15px;
+            background: var(--bg-color);
+            border-radius: var(--card-radius);
             padding: 25px;
             margin-bottom: 25px;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--border-color);
         }
 
         .section-title {
-            color: #2c3e50;
+            color: var(--text-primary);
             font-size: 1.5em;
             margin-bottom: 20px;
             display: flex;
@@ -142,11 +150,14 @@
             display: inline-block;
             width: 4px;
             height: 24px;
-            background: #3498db;
+            background: var(--forecast-theme);
             border-radius: 2px;
         }
 
         .chart-container {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
             width: 100%;
             height: 400px;
             margin: 20px 0;
@@ -266,17 +277,33 @@
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🌤️ 专业气象预报分析系统</h1>
+<body class="theme-forecast">
+    <!-- 统一导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-cloud-sun"></i>智慧天气
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/advanced-forecast">多模式预报</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/upperair">探空分析</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/agro-dashboard">农业气象</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/history/yearly">历史气候</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="page-header">
+            <h1>🌤️数值预报综合分析</h1>
             <p class="subtitle">杭州市 | 多模式数值预报对比 | 智能AI分析</p>
             <p class="subtitle">更新时间: {{ now }}</p>
-            <div class="module-nav">
-                <a href="/upperair">探空分析</a>
-                <a href="/history/yearly">历史分析</a>
-                <a href="/agro-dashboard">农业气象</a>
-            </div>
         </div>
 
         <!-- 导航标签 -->
@@ -331,7 +358,7 @@
                     <div id="detailedChart"></div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 50px;">
                     <div class="forecast-card">
                         <h4>🌡️ 温度极值</h4>
                         <div class="temp-range">
@@ -386,7 +413,50 @@
                         const maxPoints = Math.min(displayHours, data.full_labels.length);
 
                         const labels = data.timestamps ? data.timestamps.slice(0, maxPoints) : data.full_labels.slice(0, maxPoints);
-                        const dayLabels = data.day_labels ? data.day_labels.slice(0, maxPoints) : labels;
+
+                        // 创建显示标签（每24小时显示日期，其他显示时间）
+                        const displayLabels = labels.map((label, index) => {
+                            if (index % 24 === 0) {
+                                // 每24小时显示完整日期时间
+                                return label;
+                            } else if (index % 6 === 0) {
+                                // 每6小时显示时间
+                                return label.split(' ')[1];
+                            }
+                            return '';
+                        });
+
+                        // 识别每天的边界（用于背景色交替）
+                        const dayRanges = [];
+                        let currentDate = '';
+
+                        labels.forEach((label, index) => {
+                            const date = label.split(' ')[0];
+                            if (date !== currentDate) {
+                                // 开始新的一天
+                                dayRanges.push({
+                                    start: label,
+                                    end: label,
+                                    date: date
+                                });
+                                currentDate = date;
+                            }
+                            // 更新当前天的结束点（总是更新到当前遍历到的点）
+                            if (dayRanges.length > 0) {
+                                dayRanges[dayRanges.length - 1].end = label;
+                            }
+                        });
+
+                        // 将灰色背景（奇数天，idx=1,3,5...）的结束位置向右延伸一个小时
+                        for (let i = 0; i < dayRanges.length; i++) {
+                            if (i % 2 === 1) { // 奇数天是灰色背景
+                                const currentEnd = dayRanges[i].end;
+                                const currentIndex = labels.indexOf(currentEnd);
+                                if (currentIndex >= 0 && currentIndex + 1 < labels.length) {
+                                    dayRanges[i].end = labels[currentIndex + 1];
+                                }
+                            }
+                        }
 
                         // 1. 温度线（红色）
                         if (document.getElementById('temp_line').checked && data.data.temperature_2m) {
@@ -540,15 +610,14 @@
 
                         // 设置Y轴位置
                         const layout = {
-                            title: '未来72小时精细化预报',
+                            title: '未来72小时精细化预报 (ECMWF)',
                             xaxis: {
                                 title: '日期时间',
-                                type: 'category',
                                 tickangle: 45,
                                 gridcolor: '#f0f0f0',
                                 tickmode: 'array',
-                                tickvals: labels.filter((_, i) => i % 12 === 0),
-                                ticktext: dayLabels.filter((_, i) => i % 12 === 0)
+                                tickvals: labels.filter((_, i) => i % 6 === 0),
+                                ticktext: displayLabels.filter((_, i) => i % 6 === 0)
                             },
                             yaxis: {
                                 title: '温度 (°C)',
@@ -578,6 +647,18 @@
                                 gridcolor: '#f0f0f0',
                                 showgrid: false
                             },
+                            // 添加每天背景色交替
+                            shapes: dayRanges.map((dayRange, idx) => ({
+                                type: 'rect',
+                                x0: dayRange.start,
+                                x1: dayRange.end,
+                                y0: 0,
+                                y1: 1,
+                                yref: 'paper',
+                                fillcolor: idx % 2 === 0 ? '#ffffff' : '#f5f5f5',
+                                line: { width: 0 },
+                                layer: 'below'
+                            })),
                             plot_bgcolor: '#ffffff',
                             paper_bgcolor: '#ffffff',
                             showlegend: true,
@@ -1140,5 +1221,6 @@
             }
         }
     </script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

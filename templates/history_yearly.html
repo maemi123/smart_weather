@@ -3,30 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>杭州年度气候分析报告 - {{ year }}</title>
+    <title>智慧天气丨历史气候</title>
     <!-- 引入Bootstrap -->
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入FontAwesome -->
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- 引入公共样式 -->
+    <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <!-- 引入自定义样式 -->
-    <link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
+<style>
+    /* 历史气候模块橙黄色主题 */
+    .theme-history .page-header {
+        /* 从顶部白色渐变到橙黄色，与导航栏平滑过渡 */
+        background: linear-gradient(180deg, 
+            rgba(255, 255, 255, 1) 0%, 
+            rgba(255, 255, 255, 0.95) 15%,
+            rgba(255, 143, 0, 0.1) 40%,
+            rgba(255, 143, 0, 0.15) 60%,
+            rgba(255, 255, 255, 1) 100%);
+        border-bottom: 3px solid var(--history-theme);
+        padding: 40px 0 30px 0;
+        margin-bottom: 30px;
+        margin-top: 0;
+    }
+    
+    .theme-history .page-title {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+    
+    .theme-history .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1em;
+        margin-top: 10px;
+    }
+    
+    .theme-history .chart-title {
+        color: var(--text-primary);
+        border-left: 4px solid var(--history-theme);
+        padding-left: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .theme-history .overview-card {
+        background: var(--card-bg);
+        border-radius: var(--card-radius);
+        box-shadow: var(--card-shadow);
+        padding: 20px;
+        text-align: center;
+        border-top: 3px solid var(--history-theme);
+    }
+    
+    .theme-history .control-panel {
+        background: var(--card-bg);
+        border-radius: var(--card-radius);
+        box-shadow: var(--card-shadow);
+        padding: 20px;
+        margin-bottom: 30px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: center;
+    }
+    
+    .theme-history .chart-container {
+        background: var(--card-bg);
+        border-radius: var(--card-radius);
+        box-shadow: var(--card-shadow);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .theme-history .nav-tabs-custom {
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 20px;
+    }
+    
+    .theme-history .nav-tabs-custom .nav-link {
+        color: var(--text-secondary);
+        border: none;
+        padding: 12px 20px;
+        font-weight: 600;
+    }
+    
+    .theme-history .nav-tabs-custom .nav-link:hover {
+        color: var(--history-theme);
+        border-bottom: 2px solid var(--history-theme);
+    }
+    
+    .theme-history .nav-tabs-custom .nav-link.active {
+        color: var(--history-theme);
+        border-bottom: 2px solid var(--history-theme);
+        background: transparent;
+    }
+    
+    .theme-history .ai-analysis-box {
+        background: linear-gradient(135deg, rgba(255, 143, 0, 0.1) 0%, rgba(255,255,255,1) 100%);
+        border-radius: var(--card-radius);
+        padding: 20px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .theme-history .sub-nav {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .theme-history .sub-nav a {
+        padding: 8px 16px;
+        border-radius: var(--btn-radius);
+        text-decoration: none;
+        color: var(--text-secondary);
+        background: rgba(255, 143, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .theme-history .sub-nav a:hover {
+        background: rgba(255, 143, 0, 0.2);
+        color: var(--history-theme);
+    }
+    
+    .theme-history .sub-nav a.active {
+        background: var(--history-theme);
+        color: white;
+    }
+</style>
 </head>
-<body>
+<body class="theme-history">
 
-<!-- 导航栏 -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<!-- 统一导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-custom">
     <div class="container">
         <a class="navbar-brand" href="/">
-            <i class="fas fa-cloud-sun me-2"></i>智能天气系统
+            <i class="fas fa-cloud-sun"></i>智慧天气
         </a>
-        <div class="collapse navbar-collapse">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
-                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">专业预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">多模式预报</a></li>
                 <li class="nav-item"><a class="nav-link" href="/upperair">探空分析</a></li>
                 <li class="nav-item"><a class="nav-link" href="/agro-dashboard">农业气象</a></li>
-                <li class="nav-item"><a class="nav-link active" href="/history/yearly">历史分析</a></li>
-                <li class="nav-item"><a class="nav-link" href="/history/trend">趋势分析</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/history/yearly">历史气候</a></li>
             </ul>
         </div>
     </div>
@@ -37,6 +160,10 @@
     <div class="container">
         <h1 class="page-title">📍 杭州年度气候分析报告 - {{ year }}年</h1>
         <p class="page-subtitle">基于RP5高质量历史观测数据 | 对比基准：1981-2010气候态</p>
+        <div class="sub-nav">
+            <a href="/history/yearly" class="active">年度分析</a>
+            <a href="/history/trend">趋势分析</a>
+        </div>
     </div>
 </header>
 
@@ -296,13 +423,6 @@
     </div>
 
 </div>
-
-<!-- 页脚 -->
-<footer class="bg-dark text-white py-4 mt-5">
-    <div class="container text-center">
-        <p class="mb-0">&copy; 2026 智能天气分析系统 | Powered by Flask & Plotly</p>
-    </div>
-</footer>
 
 <!-- 引入Bootstrap JS -->
 <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>

@@ -3,43 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>杭州气候变化趋势分析 ({{ start_year }}-{{ end_year }})</title>
+    <title>智慧天气丨历史气候</title>
     <!-- 引入Bootstrap -->
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入FontAwesome -->
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- 引入公共样式 -->
+    <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <!-- 引入Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"
             onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js';document.head.appendChild(s);"></script>
     <!-- 引入自定义样式 -->
-    <link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
+<style>
+    /* 历史气候模块橙黄色主题 */
+    .theme-history .page-header {
+        /* 从顶部白色渐变到橙黄色，与导航栏平滑过渡 */
+        background: linear-gradient(180deg, 
+            rgba(255, 255, 255, 1) 0%, 
+            rgba(255, 255, 255, 0.95) 15%,
+            rgba(255, 143, 0, 0.1) 40%,
+            rgba(255, 143, 0, 0.15) 60%,
+            rgba(255, 255, 255, 1) 100%);
+        border-bottom: 3px solid var(--history-theme);
+        padding: 40px 0 30px 0;
+        margin-bottom: 30px;
+        margin-top: 0;
+    }
+    
+    .theme-history .page-title {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+    
+    .theme-history .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1em;
+        margin-top: 10px;
+    }
+    
+    .theme-history .card {
+        background: var(--card-bg);
+        border-radius: var(--card-radius);
+        box-shadow: var(--card-shadow);
+        border: none;
+    }
+    
+    .theme-history .card-header {
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .theme-history .sub-nav {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .theme-history .sub-nav a {
+        padding: 8px 16px;
+        border-radius: var(--btn-radius);
+        text-decoration: none;
+        color: var(--text-secondary);
+        background: rgba(255, 143, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .theme-history .sub-nav a:hover {
+        background: rgba(255, 143, 0, 0.2);
+        color: var(--history-theme);
+    }
+    
+    .theme-history .sub-nav a.active {
+        background: var(--history-theme);
+        color: white;
+    }
+</style>
 </head>
-<body>
+<body class="theme-history">
 
-<!-- 导航栏 -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<!-- 统一导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-custom">
     <div class="container">
         <a class="navbar-brand" href="/">
-            <i class="fas fa-cloud-sun me-2"></i>智能天气系统
+            <i class="fas fa-cloud-sun"></i>智慧天气
         </a>
-        <div class="collapse navbar-collapse">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
-                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">专业预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">多模式预报</a></li>
                 <li class="nav-item"><a class="nav-link" href="/upperair">探空分析</a></li>
                 <li class="nav-item"><a class="nav-link" href="/agro-dashboard">农业气象</a></li>
-                <li class="nav-item"><a class="nav-link" href="/history/yearly">历史分析</a></li>
-                <li class="nav-item"><a class="nav-link active" href="/history/trend">趋势分析</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/history/yearly">历史气候</a></li>
             </ul>
         </div>
     </div>
 </nav>
 
 <!-- 页面头部 -->
-<header class="page-header text-center" style="background: linear-gradient(135deg, #2c3e50, #8e44ad);">
+<header class="page-header text-center">
     <div class="container">
         <h1 class="page-title">📈 杭州气候变化趋势分析 [{{ start_year }}-{{ end_year }}]</h1>
         <p class="page-subtitle">探索长期气候演变规律与极端事件趋势</p>
+        <div class="sub-nav">
+            <a href="/history/yearly">年度分析</a>
+            <a href="/history/trend" class="active">趋势分析</a>
+        </div>
     </div>
 </header>
 
@@ -91,7 +164,7 @@
             <h5 class="mb-0 text-warning"><i class="fas fa-bolt me-2"></i>极端天气频次</h5>
         </div>
         <div class="card-body">
-            <p class="text-muted mb-2">统计定义：高温日(Tmax≥35°C)，低温日(Tmin≤0°C)，暴雨日(日降水≥50mm)，雷暴日(出现雷暴/雷雨，2014年后缺失记录)，降雪日(出现固态降水)</p>
+            <p class="text-muted mb-2">统计定义：高温日(Tmax≥35°C)，低温日(Tmin≤0°C)，暴雨日(日降水≥50mm)，雷暴日(出现雷暴/雷雨，2014年后缺失记录)，降雪日(出现固态降水且Tmin≤5°C)</p>
             <div class="d-flex flex-wrap gap-3 mb-3">
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" id="extremeToggleHot" checked>
@@ -119,13 +192,6 @@
     </div>
 
 </div>
-
-<!-- 页脚 -->
-<footer class="bg-dark text-white py-4 mt-5">
-    <div class="container text-center">
-        <p class="mb-0">&copy; 2026 智能天气分析系统 | Powered by Flask & Plotly</p>
-    </div>
-</footer>
 
 <!-- 引入Bootstrap JS -->
 <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>

@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>探空数据分析 | 智能天气系统</title>
+    <title>智慧天气丨探空分析</title>
     <!-- 引入Bootstrap -->
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入FontAwesome -->
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- 引入公共样式 -->
+    <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <style>
+        body {
+            background-color: var(--bg-color);
+        }
         .plot-container {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
             padding: 20px;
             min-height: 600px;
             display: flex;
             align-items: center;
-            justify_content: center;
+            justify-content: center;
         }
         .plot-img {
             max-width: 100%;
@@ -25,20 +30,23 @@
             object-fit: contain;
         }
         .param-card {
-            border-left: 4px solid #3498db;
-            background: #f8f9fa;
+            border-left: 4px solid var(--upperair-theme);
+            background: var(--card-bg);
             margin-bottom: 15px;
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            padding: 15px;
         }
         .risk-high { background-color: #ffebee; border-left-color: #e74c3c; }
         .risk-medium { background-color: #fff3e0; border-left-color: #f39c12; }
         .risk-low { background-color: #e8f5e9; border-left-color: #2ecc71; }
         
         .ai-analysis-box {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            border-radius: 15px;
+            background: linear-gradient(135deg, rgba(94, 53, 177, 0.1) 0%, rgba(255,255,255,1) 100%);
+            border-radius: var(--card-radius);
             padding: 20px;
             margin-top: 20px;
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
         }
         .loading-overlay {
             position: absolute;
@@ -50,12 +58,50 @@
             z-index: 100;
             display: none;
         }
+        .card {
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            border: none;
+        }
+        .card-header {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .btn-primary {
+            background-color: var(--upperair-theme);
+            border-color: var(--upperair-theme);
+        }
+        .btn-primary:hover {
+            background-color: #4527a0;
+            border-color: #4527a0;
+        }
     </style>
 </head>
-<body class="bg-light">
+<body class="theme-upperair">
 
-<!-- 导航栏 -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<!-- 统一导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-cloud-sun"></i>智慧天气
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
+                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">多模式预报</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/upperair">探空分析</a></li>
+                <li class="nav-item"><a class="nav-link" href="/agro-dashboard">农业气象</a></li>
+                <li class="nav-item"><a class="nav-link" href="/history/yearly">历史气候</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- 原导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark d-none">
     <div class="container">
         <a class="navbar-brand" href="/">
             <i class="fas fa-cloud-sun me-2"></i>智能天气系统

@@ -3,15 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>农业气象决策驾驶舱 | 智能天气系统</title>
+    <title>智慧天气丨农业气象</title>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- 引入公共样式 -->
+    <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/agro.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: var(--bg-color);
+        }
+        .card {
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            border: none;
+        }
+        .alert-center {
+            background: linear-gradient(135deg, rgba(67, 160, 71, 0.1) 0%, rgba(255,255,255,1) 100%);
+            border-left: 4px solid var(--agro-theme);
+        }
+        .btn-success {
+            background-color: var(--agro-theme);
+            border-color: var(--agro-theme);
+        }
+        .btn-success:hover {
+            background-color: #2e7d32;
+            border-color: #2e7d32;
+        }
+        .text-success {
+            color: var(--agro-theme) !important;
+        }
+        .bg-success {
+            background-color: var(--agro-theme) !important;
+        }
+        .navbar-custom .nav-link.active {
+            color: var(--agro-theme) !important;
+            background-color: rgba(67, 160, 71, 0.12);
+        }
+        .navbar-custom .nav-link:hover {
+            color: var(--agro-theme) !important;
+        }
+    </style>
 </head>
-<body class="bg-light">
+<body class="theme-agro">
 
-<!-- 顶部导航 -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
+<!-- 统一导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-cloud-sun"></i>智慧天气
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
+                <li class="nav-item"><a class="nav-link" href="/advanced-forecast">多模式预报</a></li>
+                <li class="nav-item"><a class="nav-link" href="/upperair">探空分析</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/agro-dashboard">农业气象</a></li>
+                <li class="nav-item"><a class="nav-link" href="/history/yearly">历史气候</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        作物详情
+                    </a>
+                    <ul class="dropdown-menu">
+                        {% for crop in crops %}
+                        <li><a class="dropdown-item" href="/crop/{{ crop.id }}">{{ crop.icon }} {{ crop.name }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            </ul>
+            <span class="navbar-text" style="color: var(--text-secondary);">
+                <i class="fas fa-map-marker-alt me-1" style="color: var(--agro-theme);"></i> 浙江·杭州 | {{ now }}
+            </span>
+        </div>
+    </div>
+</nav>
+
+<!-- 原导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm d-none">
     <div class="container-fluid">
         <a class="navbar-brand" href="/">
             <i class="fas fa-leaf me-2"></i>智慧农业气象
