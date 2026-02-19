@@ -1483,9 +1483,19 @@ def get_upperair_plot(plot_type):
         parsed_data = sounding_parser.parse_sounding_data(result['raw_data'])
         df = pd.DataFrame(parsed_data['levels'])
         
+        # 获取CAPE值用于中层风险判断
+        cape = 0
+        try:
+            analysis = sounding_analyzer.analyze(df, parsed_data.get('indices', {}))
+            cape = analysis.get('params', {}).get('cape', 0) or 0
+            if isinstance(cape, str):
+                cape = 0
+        except Exception:
+            pass
+        
         try:
             # 生成图表
-            plot_path = sounding_plotter.plot(plot_type, df, parsed_data['header'])
+            plot_path = sounding_plotter.plot(plot_type, df, parsed_data['header'], cape)
             return jsonify({
                 "success": True,
                 "url": url_for('static', filename=plot_path.replace('static/', ''))

@@ -293,14 +293,30 @@
 <script>
     function mapWeatherStyle(code) {
         const c = Number(code);
-        if (c === 0) return { icon: '☀️', bg: 'linear-gradient(135deg, rgba(255,215,0,0.28), rgba(255,255,255,1))' };
-        if ([1,2,3].includes(c)) return { icon: '⛅', bg: 'linear-gradient(135deg, rgba(135,206,235,0.28), rgba(255,255,255,1))' };
+        const now = new Date();
+        const hour = now.getHours();
+        const isNight = hour < 6 || hour >= 18;
+
+        if (c === 0) {
+            return {
+                icon: isNight ? '🌙' : '☀️',
+                bg: isNight
+                    ? 'linear-gradient(135deg, rgba(25, 25, 112, 0.28), rgba(255,255,255,1))'
+                    : 'linear-gradient(135deg, rgba(255,215,0,0.28), rgba(255,255,255,1))'
+            };
+        }
+        if ([1,2,3].includes(c)) {
+            return {
+                icon: isNight ? '🌙☁️' : '⛅',
+                bg: 'linear-gradient(135deg, rgba(135,206,235,0.28), rgba(255,255,255,1))'
+            };
+        }
         if ([45,48].includes(c)) return { icon: '🌫️', bg: 'linear-gradient(135deg, rgba(176,196,222,0.28), rgba(255,255,255,1))' };
         if (c >= 51 && c <= 55) return { icon: '🌧️', bg: 'linear-gradient(135deg, rgba(70,130,180,0.28), rgba(255,255,255,1))' };
         if (c >= 61 && c <= 65) return { icon: '🌧️', bg: 'linear-gradient(135deg, rgba(65,105,225,0.22), rgba(255,255,255,1))' };
         if (c >= 71 && c <= 75) return { icon: '❄️', bg: 'linear-gradient(135deg, rgba(255,255,255,1), rgba(30,136,229,0.10))' };
         if (c >= 95 && c <= 99) return { icon: '⛈️', bg: 'linear-gradient(135deg, rgba(75,0,130,0.22), rgba(255,255,255,1))' };
-        return { icon: '⛅', bg: 'linear-gradient(135deg, rgba(30,136,229,0.15), rgba(255,255,255,1))' };
+        return { icon: isNight ? '🌙☁️' : '⛅', bg: 'linear-gradient(135deg, rgba(30,136,229,0.15), rgba(255,255,255,1))' };
     }
 
     function fmtNum(v, digits=1) {

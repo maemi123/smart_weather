@@ -138,16 +138,13 @@ class AdvancedForecastService:
         """获取72小时精细化预报（从当前时间开始）"""
         print("🔄 获取72小时精细化预报...")
 
-        current_time = datetime.now()
-        current_hour = current_time.hour
-
         params = {
             "latitude": self.HANGZHOU_LAT,
             "longitude": self.HANGZHOU_LON,
             "hourly": ("temperature_2m,precipitation,relative_humidity_2m,"
                        "wind_speed_10m,wind_direction_10m,pressure_msl,"
                        "cloud_cover,weather_code,visibility,uv_index"),
-            "forecast_days": 4,  # 获取4天确保有72小时数据
+            "forecast_days": 4,
             "models": "ecmwf_ifs",
             "timezone": "Asia/Shanghai"
         }
@@ -157,7 +154,7 @@ class AdvancedForecastService:
 
             if response.status_code == 200:
                 data = response.json()
-                processed = self._process_hourly_data(data, detailed=True, current_hour=current_hour)
+                processed = self._process_hourly_data(data, detailed=True)
                 print(f"✅ 72小时精细化预报获取成功，数据点: {len(processed.get('timestamps', []))}")
                 return processed
             else:
@@ -170,9 +167,8 @@ class AdvancedForecastService:
 
     # 只修改有问题的函数，保持其他不变
 
-    def _process_hourly_data(self, raw_data: Dict, detailed: bool = False,
-                             current_hour: int = None) -> Dict:
-        """处理原始小时数据 - 修复时间轴问题"""
+    def _process_hourly_data(self, raw_data: Dict, detailed: bool = False) -> Dict:
+        """处理原始小时数据"""
         if "hourly" not in raw_data:
             return {"timestamps": [], "full_labels": [], "dates": [], "hours": [], "data": {}}
 
@@ -191,17 +187,7 @@ class AdvancedForecastService:
 
         for i, t in enumerate(times):
             try:
-                # 直接使用API返回的时间（已经是北京时间）
                 dt = datetime.fromisoformat(t.replace('Z', '+00:00'))
-
-                # 修复：不进行+8转换
-                # dt = dt + timedelta(hours=8)  # 删除这行
-
-                # 如果是详细模式且指定了current_hour
-                if current_hour is not None and detailed:
-                    # 只跳过明显过去的时间（比如超过3小时前）
-                    if dt.hour < current_hour - 3 and dt.date() == datetime.now().date():
-                        continue
 
                 bj_times.append(dt.strftime("%Y-%m-%d %H:%M"))
                 full_labels.append(dt.strftime("%m/%d %H:%M"))

@@ -17,7 +17,7 @@ class SoundingPlotter:
         plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'Segoe UI Emoji', 'SimHei', 'Arial']
         plt.rcParams['axes.unicode_minus'] = False
 
-    def plot(self, plot_type: str, data: pd.DataFrame, station_info: dict) -> str:
+    def plot(self, plot_type: str, data: pd.DataFrame, station_info: dict, cape: float = 0) -> str:
         """生成指定类型的图表"""
         if plot_type == "t_lnp":
             return self._plot_skewt(data, station_info, plot_type="t_lnp")
@@ -26,7 +26,7 @@ class SoundingPlotter:
         elif plot_type == "wind":
             return self._plot_wind_profile(data, station_info)
         elif plot_type == "simple":
-            return self._plot_simple(data, station_info)
+            return self._plot_simple(data, station_info, cape)
         else:
             raise ValueError(f"Unknown plot type: {plot_type}")
 
@@ -122,7 +122,7 @@ class SoundingPlotter:
         
         return self._save_fig(fig, f"wind_profile_{station_info.get('time_utc', '').replace(' ', '_')}")
 
-    def _plot_simple(self, data: pd.DataFrame, station_info: dict) -> str:
+    def _plot_simple(self, data: pd.DataFrame, station_info: dict, cape: float = 0) -> str:
         """绘制卡通直观图 (Atmospheric Health Report)"""
         fig = plt.figure(figsize=(10, 12))
         ax = fig.add_subplot(111)
@@ -255,15 +255,16 @@ class SoundingPlotter:
                         fontsize=16, color=wind_color, ha='center', va='center', 
                         alpha=alpha, fontweight='bold')
 
-        # --- 各层分析 (固定位置文本) ---
+        # --- 各层分析 (按真实高度比例显示) ---
         
         # 辅助函数：绘制图文分离的文本
         def draw_icon_text(x, y, icon, text, color, fontsize=12):
             ax.text(x, y, icon, color=color, fontsize=fontsize, fontweight='bold', fontname='Segoe UI Emoji')
             ax.text(x + 0.03, y, text, color=color, fontsize=fontsize, fontweight='bold')
 
-        # A. 高空 (10km+)
-        y_high = 0.8
+        # A. 高空 (10km+) - 按真实高度
+        y_high_real = h_to_y(10000)
+        y_high = min(0.88, max(0.75, y_high_real))  # 限制在合理范围避免超出
         status_color = 'red' if high_wind > 40 else 'orange' if high_wind > 20 else 'green'
         status_icon = "🏃‍♂️" if high_wind > 40 else "🚶"
         status_text = "心率过快" if high_wind > 40 else "正常"
@@ -280,20 +281,41 @@ class SoundingPlotter:
         
         self._draw_status_bar(ax, 0.85, y_high-0.03, high_wind/60, status_color)
 
-        # B. 中层 (5km)
-        y_mid = 0.65
-        is_dry = mid_depression > 15
-        status_color = 'red' if is_dry else 'green'
-        status_icon = "🤧" if is_dry else "💧"
-        status_text = "严重干燥" if is_dry else "湿润"
+        # B. 中层 (5km) - 按真实高度
+        y_mid_real = h_to_y(5500)  # 500hPa约5.5km
+        y_mid = min(0.72, max(0.45, y_mid_real))  # 限制在合理范围
+        # 中层湿度判断（三级）
+        if mid_depression > 15:
+            status_color = 'red'
+            status_icon = "🤧"
+            status_text = "严重干燥"
+        elif mid_depression > 8:
+            status_color = 'orange'
+            status_icon = "🌤️"
+            status_text = "湿度适中"
+        else:
+            status_color = 'green'
+            status_icon = "💧"
+            status_text = "湿润"
         
         ax.text(0.25, y_mid, "中层 (5km)", fontweight='bold', fontsize=12)
         draw_icon_text(0.45, y_mid, status_icon, status_text, status_color)
 
         ax.text(0.25, y_mid-0.03, f"湿度: {mid_rh:.0f}% (温露差 {mid_depression:.1f}°C)", fontsize=10)
         
-        risk_icon = "⚡" if is_dry else "☁️"
-        risk_text = "雷暴大风风险增高" if is_dry else "云层较厚"
+        # 风险提示（三级）
+        if mid_depression > 15 and cape > 1500:
+            risk_icon = "⚡"
+            risk_text = "对流能量充足且温露差大，雷暴大风风险增高"
+        elif mid_depression > 15:
+            risk_icon = "☀️"
+            risk_text = "空气干燥，云层较少"
+        elif mid_depression > 8:
+            risk_icon = "⛅"
+            risk_text = "湿度适中，天气稳定"
+        else:
+            risk_icon = "☁️"
+            risk_text = "湿度较高，云层可能发展"
         ax.text(0.25, y_mid-0.06, "→ 潜在风险:", fontsize=10, color='#e67e22', style='italic')
         draw_icon_text(0.35, y_mid-0.06, risk_icon, risk_text, '#e67e22', fontsize=10)
         
@@ -304,9 +326,18 @@ class SoundingPlotter:
         y_freeze_real = h_to_y(freezing_hght)
         y_inv_real = h_to_y(inversion_hght) if has_inversion else 0.35
         
-        # 为了避免文字重叠，限制最小间距，但尽量保持在真实高度附近
-        # 这里为了视觉清晰，还是使用固定锚点，但参考真实相对位置
-        y_freeze_label = 0.5
+        # 计算中层文字的最低位置
+        y_mid_bottom = y_mid - 0.09
+        
+        # 动态计算0度层标签位置，取中层和逆温层之间的中间位置
+        y_freeze_label = max(0.30, min(0.55, y_freeze_real))
+        if y_freeze_real > y_mid:
+            # 0度层真实高度高于中层，标签放在中层上方
+            y_freeze_label = min(y_freeze_label, y_mid - 0.12)
+        else:
+            # 0度层标签在中层文字下方和逆温层上方之间取中间值，稍微偏上
+            y_freeze_label = (y_mid_bottom + 0.35) / 2 + 0.02
+        
         y_inv_label = 0.35
         
         if has_inversion and freezing_hght < inversion_hght:
@@ -324,25 +355,22 @@ class SoundingPlotter:
             draw_icon_text(0.45, y_freeze_label, "🎯", "关键分界线", '#2980b9', fontsize=11)
             ax.text(0.25, y_freeze_label-0.03, f"→ 降水形态: 此高度以下为雨，以上可能为雪/冰", fontsize=10, color='#7f8c8d')
 
-        # D. 逆温层 (如果有)
-        if has_inversion:
-            if min_hght < inversion_hght < max_hght:
-                ax.plot([0.18, 0.8], [y_inv_real, y_inv_real], ls=':', color='#d35400', lw=2)
-                ax.annotate(f"逆温层 (~{inversion_hght:.0f}m)",
-                            xy=(0.6, y_inv_real), xytext=(0.25, y_inv_label),
-                            arrowprops=dict(arrowstyle="->", color='#d35400'),
-                            fontweight='bold', fontsize=12, color='#d35400')
-                draw_icon_text(0.48, y_inv_label, "🚧", "交通堵塞", '#d35400')
-                
+        # D. 逆温层 (如果有且在显示范围内)
+        if has_inversion and min_hght < inversion_hght < max_hght:
+            ax.plot([0.18, 0.8], [y_inv_real, y_inv_real], ls=':', color='#d35400', lw=2)
+            ax.annotate(f"逆温层 (~{inversion_hght:.0f}m)",
+                        xy=(0.6, y_inv_real), xytext=(0.25, y_inv_label),
+                        arrowprops=dict(arrowstyle="->", color='#d35400'),
+                        fontweight='bold', fontsize=12, color='#d35400')
+            draw_icon_text(0.48, y_inv_label, "🚧", "交通堵塞", '#d35400')
             ax.text(0.25, y_inv_label-0.03, "特性: 温度随高度上升 (反常现象)", fontsize=10)
-            
             ax.text(0.25, y_inv_label-0.06, "→ 对您意味着:", fontsize=10, color='#e67e22', style='italic')
             draw_icon_text(0.38, y_inv_label-0.06, "😷", "污染物堆积，雾霾难散", '#e67e22', fontsize=10)
-            
             self._draw_status_bar(ax, 0.85, y_inv_label-0.03, 0.8, 'orange')
 
-        # E. 地面
-        y_sfc = 0.2
+        # E. 地面 - 按真实高度
+        y_sfc_real = h_to_y(sfc_hght)
+        y_sfc = max(0.22, min(0.35, y_sfc_real))  # 限制在合理范围
         is_humid = sfc_rh > 90
         status_color = 'blue' if is_humid else 'green'
         status_icon = "😷" if is_humid else "😊" if 40<sfc_rh<70 else "🌵"
