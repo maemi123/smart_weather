@@ -1,0 +1,21 @@
+{
+  "feature_columns": [
+    "forecast_temp",
+    "forecast_rhum",
+    "forecast_wspd",
+    "forecast_pres",
+    "hour",
+    "month",
+    "day_of_week",
+    "is_day",
+    "is_weekend",
+    "lead_hours",
+    "lead_category",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "target_variable": "wspd",
+  "train_end_date": "2026-02-10",
+  "max_lead_hours": 168,
+  "created_at": "2026-02-21 04:51:10"
+}
