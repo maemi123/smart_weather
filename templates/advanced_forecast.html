@@ -326,6 +326,30 @@
                 <h2 class="section-title">未来72小时精细化预报（逐小时）</h2>
 
                 {% if detailed_72h and detailed_72h.data %}
+                <!-- ML校正开关 -->
+                <div class="ml-correction-toggle" style="margin-bottom: 15px; padding: 12px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">🤖</span>
+                        <div>
+                            <div style="color: white; font-weight: 600; font-size: 14px;">机器学习误差校正</div>
+                            <div style="color: rgba(255,255,255,0.8); font-size: 12px;">基于随机森林模型，对温度、湿度、风速、降水进行校正</div>
+                        </div>
+                    </div>
+                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                        <input type="checkbox" id="ml_correction_toggle" onchange="toggleMLCorrection()" style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.3); transition: .3s; border-radius: 26px;"></span>
+                    </label>
+                    <style>
+                        .switch input:checked + .slider { background-color: #2ecc71; }
+                        .switch .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+                        .switch input:checked + .slider:before { transform: translateX(24px); }
+                    </style>
+                </div>
+                
+                <div id="ml_status" style="display: none; margin-bottom: 10px; padding: 8px 12px; background: #e8f5e9; border-radius: 6px; font-size: 13px; color: #2e7d32;">
+                    <span id="ml_status_text">✅ ML校正已启用</span>
+                </div>
+
                 <div class="model-selector">
                     <div class="model-checkbox">
                         <input type="checkbox" id="temp_line" checked onchange="updateDetailedChart()">
@@ -398,6 +422,86 @@
                 <script>
                     // 存储详细数据供JS使用
                     window.detailedData = {{ detailed_72h | tojson }};
+                    window.mlCorrectedData = null;  // 存储校正后的数据
+                    window.mlEnabled = false;       // ML校正开关状态
+
+                    // 切换ML校正
+                    async function toggleMLCorrection() {
+                        const toggle = document.getElementById('ml_correction_toggle');
+                        const statusDiv = document.getElementById('ml_status');
+                        const statusText = document.getElementById('ml_status_text');
+                        
+                        window.mlEnabled = toggle.checked;
+                        
+                        if (window.mlEnabled) {
+                            statusDiv.style.display = 'block';
+                            statusText.innerHTML = '⏳ 正在应用ML校正...';
+                            
+                            try {
+                                const data = window.detailedData;
+                                if (!data || !data.data) {
+                                    throw new Error('数据不可用');
+                                }
+                                
+                                // 准备发送给后端的数据
+                                const forecastData = [];
+                                const timestamps = data.timestamps || data.full_labels || [];
+                                const temps = data.data.temperature_2m || [];
+                                const rhums = data.data.relative_humidity_2m || [];
+                                const wspds = data.data.wind_speed_10m || [];
+                                const pres = data.data.pressure_msl || [];
+                                
+                                for (let i = 0; i < timestamps.length; i++) {
+                                    forecastData.push({
+                                        datetime: timestamps[i],
+                                        temperature_2m: temps[i],
+                                        relative_humidity_2m: rhums[i],
+                                        wind_speed_10m: wspds[i],
+                                        pressure_msl: pres[i] || 1013
+                                    });
+                                }
+                                
+                                // 调用后端API
+                                const response = await fetch('/apply-ml-correction', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        data: forecastData
+                                    })
+                                });
+                                
+                                const result = await response.json();
+                                
+                                if (result.success && result.models_loaded) {
+                                    // 保存校正后的数据
+                                    window.mlCorrectedData = result.corrected_data;
+                                    statusText.innerHTML = '✅ ML校正已启用 - 温度/湿度/风速/降水已校正';
+                                    statusDiv.style.background = '#e8f5e9';
+                                    statusDiv.style.color = '#2e7d32';
+                                } else {
+                                    statusText.innerHTML = '⚠️ ' + (result.message || 'ML校正不可用');
+                                    statusDiv.style.background = '#fff3e0';
+                                    statusDiv.style.color = '#e65100';
+                                }
+                                
+                                // 重新绘制图表
+                                updateDetailedChart();
+                                
+                            } catch (error) {
+                                console.error('ML校正失败:', error);
+                                statusText.innerHTML = '❌ ML校正失败: ' + error.message;
+                                statusDiv.style.background = '#ffebee';
+                                statusDiv.style.color = '#c62828';
+                            }
+                        } else {
+                            statusDiv.style.display = 'none';
+                            window.mlCorrectedData = null;
+                            // 重新绘制图表（使用原始数据）
+                            updateDetailedChart();
+                        }
+                    }
 
                     // 在 updateDetailedChart 函数中，修改为：
 
@@ -460,23 +564,49 @@
 
                         // 1. 温度线（红色）
                         if (document.getElementById('temp_line').checked && data.data.temperature_2m) {
+                            // 使用校正数据或原始数据
+                            let tempData = data.data.temperature_2m.slice(0, maxPoints);
+                            if (window.mlEnabled && window.mlCorrectedData) {
+                                tempData = window.mlCorrectedData.slice(0, maxPoints).map(d => d.temperature_2m_corrected || d.temperature_2m);
+                            }
+                            
                             traces.push({
                                 x: labels,
-                                y: data.data.temperature_2m.slice(0, maxPoints),
+                                y: tempData,
                                 type: 'scatter',
                                 mode: 'lines+markers',
-                                name: '温度 (°C)',
+                                name: window.mlEnabled ? '温度-ML校正 (°C)' : '温度 (°C)',
                                 line: { color: '#e74c3c', width: 3 },
                                 marker: { size: 4 },
                                 yaxis: 'y1',
                                 customdata: labels,
                                 hovertemplate: '%{customdata}<br>温度: %{y:.1f}°C<extra></extra>'
                             });
+                            
+                            // 如果启用了ML校正，显示原始数据作为虚线对比
+                            if (window.mlEnabled && data.data.temperature_2m) {
+                                traces.push({
+                                    x: labels,
+                                    y: data.data.temperature_2m.slice(0, maxPoints),
+                                    type: 'scatter',
+                                    mode: 'lines',
+                                    name: '温度-原始 (°C)',
+                                    line: { color: '#e74c3c', width: 1, dash: 'dot' },
+                                    opacity: 0.5,
+                                    yaxis: 'y1',
+                                    hoverinfo: 'skip'
+                                });
+                            }
                         }
 
                         // 2. 降水量柱状图（蓝色/浅蓝色）
                         if (document.getElementById('precip_bar').checked && data.data.precipitation) {
-                            const precipData = data.data.precipitation.slice(0, maxPoints);
+                            // 使用校正数据或原始数据
+                            let precipData = data.data.precipitation.slice(0, maxPoints);
+                            if (window.mlEnabled && window.mlCorrectedData) {
+                                precipData = window.mlCorrectedData.slice(0, maxPoints).map(d => d.precipitation_corrected !== undefined ? d.precipitation_corrected : d.precipitation);
+                            }
+                            
                             const weatherCodes = data.data.weather_code ? data.data.weather_code.slice(0, maxPoints) : [];
                             
                             // 固态降水代码 (雪)
@@ -501,7 +631,7 @@
                                 x: labels,
                                 y: precipData,
                                 type: 'bar',
-                                name: '降水 (mm)',
+                                name: window.mlEnabled ? '降水-ML校正 (mm)' : '降水 (mm)',
                                 marker: {
                                     color: barColors,
                                     opacity: 0.8
@@ -514,12 +644,18 @@
 
                         // 3. 湿度线（紫色）- 修复
                         if (document.getElementById('humidity_line').checked && data.data.relative_humidity_2m) {
+                            // 使用校正数据或原始数据
+                            let rhumData = data.data.relative_humidity_2m.slice(0, maxPoints);
+                            if (window.mlEnabled && window.mlCorrectedData) {
+                                rhumData = window.mlCorrectedData.slice(0, maxPoints).map(d => d.relative_humidity_2m_corrected || d.relative_humidity_2m);
+                            }
+                            
                             traces.push({
                                 x: labels,
-                                y: data.data.relative_humidity_2m.slice(0, maxPoints),
+                                y: rhumData,
                                 type: 'scatter',
                                 mode: 'lines',
-                                name: '湿度 (%)',
+                                name: window.mlEnabled ? '湿度-ML校正 (%)' : '湿度 (%)',
                                 line: { color: '#9b59b6', width: 2, dash: 'dash' },
                                 yaxis: 'y3',
                                 customdata: labels,
@@ -575,12 +711,18 @@
 
                         // 5. 风速（绿色）- 可选
                         if (document.getElementById('wind_line').checked && data.data.wind_speed_10m) {
+                            // 使用校正数据或原始数据
+                            let wspdData = data.data.wind_speed_10m.slice(0, maxPoints);
+                            if (window.mlEnabled && window.mlCorrectedData) {
+                                wspdData = window.mlCorrectedData.slice(0, maxPoints).map(d => d.wind_speed_10m_corrected || d.wind_speed_10m);
+                            }
+                            
                             traces.push({
                                 x: labels,
-                                y: data.data.wind_speed_10m.slice(0, maxPoints),
+                                y: wspdData,
                                 type: 'scatter',
                                 mode: 'lines',
-                                name: '风速 (km/h)',
+                                name: window.mlEnabled ? '风速-ML校正 (km/h)' : '风速 (km/h)',
                                 line: { color: '#2ecc71', width: 2 },
                                 yaxis: 'y4',
                                 customdata: labels,
@@ -664,11 +806,11 @@
                             showlegend: true,
                             legend: {
                                 x: 0,
-                                y: 1.2,
+                                y: 1.05,
                                 orientation: 'h',
                                 font: { size: 10 }
                             },
-                            margin: { l: 50, r: 120, t: 50, b: 100 }
+                            margin: { l: 50, r: 120, t: 70, b: 80 }
                         };
 
                         Plotly.newPlot('detailedChart', traces, layout);
@@ -701,6 +843,12 @@
                         <label for="model_{{ model_key }}">{{ model_data.name }}</label>
                     </div>
                     {% endfor %}
+                    <!-- ML后处理模型 -->
+                    <div class="model-checkbox">
+                        <input type="checkbox" id="model_ecmwf_ml" onchange="updateModelComparison()">
+                        <div class="color-indicator" style="background: #e67e22;"></div>
+                        <label for="model_ecmwf_ml">ECMWF (ML后处理)</label>
+                    </div>
                 </div>
 
                 <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px;">
@@ -732,8 +880,9 @@
                 <script>
                     // 存储多模式数据
                     window.multiModelData = {{ multi_model | tojson }};
+                    window.mlCorrectedMultiData = null;  // 存储多模式校正后的数据
 
-                    function updateModelComparison() {
+                    async function updateModelComparison() {
                         const traces = [];
                         const models = window.multiModelData;
 
@@ -751,12 +900,100 @@
                             'relative_humidity_2m': '湿度 (%)'
                         };
 
+                        const checkboxMlEcmwf = document.getElementById('model_ml_ecmwf');
+                        const checkboxEcmwfMl = document.getElementById('model_ecmwf_ml');
+                        const shouldDebug = Boolean(checkboxMlEcmwf?.checked || checkboxEcmwfMl?.checked);
+                        if (shouldDebug) {
+                            console.log('[updateModelComparison] models keys:', Object.keys(models));
+                            console.log('[updateModelComparison] models.ml_ecmwf:', models.ml_ecmwf);
+                            console.log('[updateModelComparison] checkbox model_ml_ecmwf checked:', checkboxMlEcmwf?.checked);
+                            console.log('[updateModelComparison] checkbox model_ecmwf_ml checked:', checkboxEcmwfMl?.checked);
+                        }
+
                         // 收集选中的模型
                         const selectedModels = [];
                         for (const [modelKey, modelData] of Object.entries(models)) {
                             const checkbox = document.getElementById(`model_${modelKey}`);
                             if (checkbox && checkbox.checked && modelData.data) {
                                 selectedModels.push({key: modelKey, data: modelData});
+                            }
+                        }
+                        if (shouldDebug) {
+                            console.log('[updateModelComparison] selectedModels:', selectedModels.map(m => m.key));
+                        }
+                        
+                        // 检查是否选择了ML后处理模型
+                        let mlCorrectedData = null;
+                        
+                        if (checkboxEcmwfMl && checkboxEcmwfMl.checked) {
+                            const baseModelKey = (models.ecmwf_ifs && 'ecmwf_ifs') || (models.ecmwf && 'ecmwf') || null;
+                            const baseModelEntry = baseModelKey ? models[baseModelKey] : null;
+                            if (!baseModelEntry) {
+                                console.warn('ECMWF模型数据不可用，无法生成 ML 后处理曲线');
+                                checkboxEcmwfMl.checked = false;
+                            }
+
+                            // 调用后端API获取校正数据
+                            try {
+                                const baseData = baseModelEntry?.data || {};
+                                const baseHourly = baseData.data || {};
+                                const timestamps = baseData.timestamps || [];
+                                const temps = baseHourly.temperature_2m || [];
+                                const rhums = baseHourly.relative_humidity_2m || [];
+                                const wspds = baseHourly.wind_speed_10m || [];
+                                const pres = baseHourly.pressure_msl || [];
+                                const precips = baseHourly.precipitation || [];
+
+                                if (shouldDebug) {
+                                    console.log('[updateModelComparison] baseModelKey:', baseModelKey);
+                                    console.log('[updateModelComparison] base timestamps len:', timestamps.length);
+                                    console.log('[updateModelComparison] base temps len:', temps.length);
+                                }
+                                
+                                const forecastData = [];
+                                const buildLen = Math.min(timestamps.length, temps.length, rhums.length, wspds.length);
+                                const cached = window.mlCorrectedMultiData;
+                                if (cached && cached.baseModelKey === baseModelKey && cached.buildLen === buildLen) {
+                                    mlCorrectedData = cached.correctedData;
+                                } else {
+                                    for (let i = 0; i < buildLen; i++) {
+                                        forecastData.push({
+                                            datetime: timestamps[i],
+                                            temperature_2m: temps[i],
+                                            relative_humidity_2m: rhums[i],
+                                            wind_speed_10m: wspds[i],
+                                            precipitation: precips[i] ?? 0,
+                                            pressure_msl: pres[i] || 1013
+                                        });
+                                    }
+                                    
+                                    const response = await fetch('/apply-ml-correction', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ data: forecastData })
+                                    });
+                                    
+                                    const result = await response.json();
+                                    if (result.success && result.models_loaded) {
+                                        mlCorrectedData = result.corrected_data;
+                                        window.mlCorrectedMultiData = { baseModelKey, buildLen, correctedData: mlCorrectedData };
+                                        if (shouldDebug) {
+                                            console.log('[updateModelComparison] corrected_data sample:', mlCorrectedData?.slice?.(0, 2));
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('获取ML校正数据失败:', error);
+                            }
+                            
+                            // 添加ML后处理模型
+                            if (baseModelEntry) {
+                                selectedModels.push({
+                                    key: 'ecmwf_ml', 
+                                    data: baseModelEntry,
+                                    isML: true,
+                                    correctedData: mlCorrectedData
+                                });
                             }
                         }
 
@@ -784,7 +1021,7 @@
                         const baseModel = selectedModels[0].data;
                         const displayHours = 120; // 120小时（5天）
 
-                        let timeLabels = baseModel.data.full_labels || baseModel.data.hours || [];
+                        let timeLabels = baseModel.data.full_labels || baseModel.data.hours || baseModel.data.timestamps || [];
                         let displayLabels = [];
 
                         // 生成时间标签（每24小时显示一次日期）
@@ -807,13 +1044,34 @@
                         }
 
                         // 为每个选中的模型添加轨迹
-                        selectedModels.forEach(({key, data}) => {
-                            const modelParam = data.data.data[selectedParam];
-                            const stats = data.data.statistics?.[selectedParam];
+                        selectedModels.forEach(({key, data, isML, correctedData}) => {
+                            const modelParam = data?.data?.data?.[selectedParam] ?? data?.data?.[selectedParam] ?? data?.[selectedParam] ?? [];
+                            const stats = data?.data?.statistics?.[selectedParam] ?? data?.statistics?.[selectedParam];
 
                             if (modelParam && modelParam.length > 0) {
-                                const maxPoints = Math.min(displayHours, modelParam.length);
-                                const values = modelParam.slice(0, maxPoints);
+                                const maxPoints = Math.min(displayHours, modelParam.length, timeLabels.length || modelParam.length);
+                                let values = modelParam.slice(0, maxPoints);
+                                
+                                // ML后处理模型的名称和颜色
+                                let modelName = data.name;
+                                let modelColor = data.color;
+                                
+                                if (isML) {
+                                    modelName = 'ECMWF (ML后处理)';
+                                    modelColor = '#e67e22';
+                                    
+                                    // 使用校正后的数据
+                                    const paramMap = {
+                                        'temperature_2m': 'temperature_2m_corrected',
+                                        'relative_humidity_2m': 'relative_humidity_2m_corrected',
+                                        'wind_speed_10m': 'wind_speed_10m_corrected',
+                                        'precipitation': 'precipitation_corrected'
+                                    };
+                                    const correctedField = paramMap[selectedParam];
+                                    if (correctedField && correctedData && correctedData[0] && correctedData[0][correctedField] !== undefined) {
+                                        values = correctedData.slice(0, maxPoints).map(d => d[correctedField]);
+                                    }
+                                }
 
                                 // 主轨迹（均值或模型值）
                                 const trace = {
@@ -821,18 +1079,18 @@
                                     y: values,
                                     type: 'scatter',
                                     mode: 'lines',
-                                    name: data.name,
+                                    name: modelName,
                                     line: {
-                                        color: data.color,
+                                        color: modelColor,
                                         width: key === 'ensemble' ? 3 : 2,
-                                        dash: key === 'ensemble' ? 'solid' : 'solid'
+                                        dash: isML ? 'dash' : 'solid'
                                     }
                                 };
 
                                 traces.push(trace);
 
-                                // 修复：如果是集合预报且有置信区间，正确显示
-                                if (key === 'ensemble' && stats && stats.q25 && stats.q75) {
+                                // 修复：如果是集合预报且有置信区间，正确显示（ML模型不显示置信区间）
+                                if (key === 'ensemble' && !isML && stats && stats.q25 && stats.q75) {
                                     const q25 = stats.q25.slice(0, maxPoints);
                                     const q75 = stats.q75.slice(0, maxPoints);
 
@@ -843,8 +1101,8 @@
                                             y: q75,
                                             type: 'scatter',
                                             mode: 'lines',
-                                            name: `${data.name} - 上界`,
-                                            line: { color: data.color, width: 0 },
+                                            name: `${modelName} - 上界`,
+                                            line: { color: modelColor, width: 0 },
                                             showlegend: false,
                                             hoverinfo: 'none'
                                         });
@@ -856,9 +1114,9 @@
                                             type: 'scatter',
                                             mode: 'lines',
                                             fill: 'tonexty',
-                                            fillcolor: data.color.replace(')', ', 0.2)').replace('rgb', 'rgba'),
-                                            name: `${data.name} - 下界`,
-                                            line: { color: data.color, width: 0 },
+                                            fillcolor: modelColor.replace(')', ', 0.2)').replace('rgb', 'rgba'),
+                                            name: `${modelName} - 下界`,
+                                            line: { color: modelColor, width: 0 },
                                             showlegend: false,
                                             hoverinfo: 'none'
                                         });
@@ -888,11 +1146,11 @@
                             showlegend: true,
                             legend: {
                                 x: 0,
-                                y: 1.15,
+                                y: -0.18,
                                 orientation: 'h',
                                 font: { size: 10 }
                             },
-                            margin: { l: 60, r: 30, t: 60, b: 100 }
+                            margin: { l: 60, r: 30, t: 60, b: 80 }
                         };
 
                         Plotly.newPlot('modelComparisonChart', traces, layout);

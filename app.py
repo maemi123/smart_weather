@@ -19,6 +19,7 @@ from advanced_forecast_service import AdvancedForecastService
 from typing import Dict, List
 
 from history_analyzer import analyzer
+from ml_correction import apply_ml_correction, get_corrector
 from datetime import datetime
 
 # 初始化服务
@@ -1037,6 +1038,89 @@ def advanced_forecast():
                                summary_10day=[],
                                ai_analysis_text="数据加载失败",
                                now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
+@app.route('/apply-ml-correction', methods=['POST'])
+def apply_ml_correction_route():
+    """
+    应用机器学习误差校正
+    
+    接收 POST 请求:
+    {
+        "data": 预报数据列表,
+        "issue_time": 起报时间 (可选)
+    }
+    
+    返回:
+    {
+        "success": True/False,
+        "corrected_data": 校正后数据,
+        "message": 状态信息
+    }
+    """
+    try:
+        req_data = request.get_json()
+        
+        if not req_data or 'data' not in req_data:
+            return jsonify({
+                'success': False,
+                'message': '缺少数据'
+            }), 400
+        
+        forecast_data = req_data['data']
+        issue_time_str = req_data.get('issue_time')
+        
+        issue_time = None
+        if issue_time_str:
+            try:
+                issue_time = datetime.fromisoformat(issue_time_str.replace('Z', '+00:00'))
+            except:
+                pass
+        
+        corrected_data = apply_ml_correction(forecast_data, issue_time)
+        
+        corrector = get_corrector()
+        models_loaded = corrector.is_loaded()
+        
+        return jsonify({
+            'success': True,
+            'corrected_data': corrected_data,
+            'message': '校正完成' if models_loaded else '模型未加载，返回原始数据',
+            'models_loaded': models_loaded
+        })
+        
+    except Exception as e:
+        print(f"ML校正出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'校正过程出错: {str(e)}',
+            'corrected_data': req_data.get('data', [])
+        }), 500
+
+
+@app.route('/ml-models-status')
+def ml_models_status():
+    """检查ML模型状态"""
+    try:
+        corrector = get_corrector()
+        models_status = {}
+        
+        expected_models = ['temp', 'rhum', 'wspd', 'precip_clf', 'precip_reg']
+        for model_name in expected_models:
+            models_status[model_name] = model_name in corrector.models
+        
+        return jsonify({
+            'success': True,
+            'loaded': corrector.is_loaded(),
+            'models': models_status
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        })
 
 
 def prepare_ai_analysis_text(detailed_72h: Dict, summary_10day: List[Dict], multi_model: Dict) -> str:
