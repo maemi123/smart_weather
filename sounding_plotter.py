@@ -304,10 +304,11 @@ class SoundingPlotter:
         ax.text(0.25, y_mid-0.03, f"湿度: {mid_rh:.0f}% (温露差 {mid_depression:.1f}°C)", fontsize=10)
         
         # 风险提示（三级）
-        if mid_depression > 15 and cape > 1500:
+        is_mid_dry = (mid_depression > 12) or (mid_rh < 35)
+        if is_mid_dry and cape > 1500:
             risk_icon = "⚡"
             risk_text = "对流能量充足且温露差大，雷暴大风风险增高"
-        elif mid_depression > 15:
+        elif is_mid_dry:
             risk_icon = "☀️"
             risk_text = "空气干燥，云层较少"
         elif mid_depression > 8:
@@ -326,6 +327,9 @@ class SoundingPlotter:
         y_freeze_real = h_to_y(freezing_hght)
         y_inv_real = h_to_y(inversion_hght) if has_inversion else 0.35
         
+        # 定义干燥状态（用于底部诊断）
+        is_dry = mid_depression > 15
+        
         # 计算中层文字的最低位置
         y_mid_bottom = y_mid - 0.09
         
@@ -340,8 +344,12 @@ class SoundingPlotter:
         
         y_inv_label = 0.35
         
-        if has_inversion and freezing_hght < inversion_hght:
+        # 当逆温层在0度层上面时，交换标签位置避免重叠
+        if has_inversion and inversion_hght > freezing_hght:
             y_freeze_label, y_inv_label = y_inv_label, y_freeze_label
+            y_freeze_label = max(0.24, y_freeze_label - 0.06)
+            if (y_inv_label - y_freeze_label) < 0.09:
+                y_freeze_label = max(0.24, y_inv_label - 0.09)
             
         # C. 0度层
         # 画线要在真实高度
@@ -371,18 +379,20 @@ class SoundingPlotter:
         # E. 地面 - 按真实高度
         y_sfc_real = h_to_y(sfc_hght)
         y_sfc = max(0.22, min(0.35, y_sfc_real))  # 限制在合理范围
-        is_humid = sfc_rh > 90
+        is_very_humid = sfc_rh >= 90
+        is_humid = sfc_rh >= 70
+        is_comfortable = 40 < sfc_rh < 70
         status_color = 'blue' if is_humid else 'green'
-        status_icon = "😷" if is_humid else "😊" if 40<sfc_rh<70 else "🌵"
-        status_text = "极度潮湿" if is_humid else "舒适" if 40<sfc_rh<70 else "干燥"
+        status_icon = "😷" if is_very_humid else "🙂" if is_humid else "😊" if is_comfortable else "🌵"
+        status_text = "极度潮湿" if is_very_humid else "偏湿" if is_humid else "舒适" if is_comfortable else "干燥"
         
         ax.text(0.25, y_sfc, "低层 (地面)", fontweight='bold', fontsize=12)
         draw_icon_text(0.45, y_sfc, status_icon, status_text, status_color)
 
         ax.text(0.25, y_sfc-0.03, f"湿度: {sfc_rh:.0f}%", fontsize=10)
         
-        life_icon = "🌫️" if is_humid else "🚗"
-        life_text = "有雾，出行注意安全" if is_humid else "能见度良好"
+        life_icon = "🌫️" if is_very_humid else "🚗"
+        life_text = "有雾，出行注意安全" if is_very_humid else "能见度良好"
         ax.text(0.25, y_sfc-0.06, "→ 生活提示:", fontsize=10, color='#e67e22', style='italic')
         draw_icon_text(0.35, y_sfc-0.06, life_icon, life_text, '#e67e22', fontsize=10)
         

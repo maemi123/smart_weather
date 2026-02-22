@@ -1571,7 +1571,7 @@ def get_upperair_plot(plot_type):
         cape = 0
         try:
             analysis = sounding_analyzer.analyze(df, parsed_data.get('indices', {}))
-            cape = analysis.get('params', {}).get('cape', 0) or 0
+            cape = analysis.get('parameters', {}).get('cape', 0) or 0
             if isinstance(cape, str):
                 cape = 0
         except Exception:

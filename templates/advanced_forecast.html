@@ -371,7 +371,7 @@
                         <div class="color-indicator" style="background: #2ecc71;"></div>
                         <label for="wind_line">风速(km/h)</label>
                     </div>
-                    <div class="model-checkbox">
+                    <div class="model-checkbox" id="weather_icons_checkbox">
                         <input type="checkbox" id="weather_icons" checked onchange="updateDetailedChart()">
                         <div class="color-indicator" style="background: #f39c12;"></div>
                         <label for="weather_icons">天况图标</label>
@@ -437,6 +437,16 @@
                             statusDiv.style.display = 'block';
                             statusText.innerHTML = '⏳ 正在应用ML校正...';
                             
+                            // 隐藏天况图标选项
+                            const weatherIconsCheckbox = document.getElementById('weather_icons_checkbox');
+                            const weatherIconsInput = document.getElementById('weather_icons');
+                            if (weatherIconsCheckbox) {
+                                weatherIconsCheckbox.style.display = 'none';
+                            }
+                            if (weatherIconsInput) {
+                                weatherIconsInput.checked = false;
+                            }
+                            
                             try {
                                 const data = window.detailedData;
                                 if (!data || !data.data) {
@@ -498,6 +508,17 @@
                         } else {
                             statusDiv.style.display = 'none';
                             window.mlCorrectedData = null;
+                            
+                            // 恢复天况图标选项
+                            const weatherIconsCheckbox = document.getElementById('weather_icons_checkbox');
+                            const weatherIconsInput = document.getElementById('weather_icons');
+                            if (weatherIconsCheckbox) {
+                                weatherIconsCheckbox.style.display = 'flex';
+                            }
+                            if (weatherIconsInput) {
+                                weatherIconsInput.checked = true;
+                            }
+                            
                             // 重新绘制图表（使用原始数据）
                             updateDetailedChart();
                         }
@@ -1381,7 +1402,7 @@
                 <h2 class="section-title">🤖 AI智能气象分析</h2>
 
                 <div class="ai-analysis">
-                    <h3>气象专家分析报告（基于多源数据）</h3>
+                    <h3>气象分析报告（基于多源数据）</h3>
                     <div class="ai-content" id="aiContent">
                         正在生成AI分析报告...
                     </div>
