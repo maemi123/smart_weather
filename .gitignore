@@ -13,6 +13,7 @@ ENV/
 .vscode/
 .idea/
 *.swp
+.trae/
 
 # 环境变量
 .env
@@ -25,3 +26,7 @@ ENV/
 
 # 日志
 *.log
+
+# 敏感文件
+api.txt
+想法.txt
