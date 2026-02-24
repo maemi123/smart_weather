@@ -105,6 +105,7 @@ New-Item -Name ".env" -ItemType "file"
 
 # 写入密钥（替换为你的实际密钥）
 Set-Content -Path ".env" -Value 'DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx'
+可能还有些地方秘钥配置没覆盖到，需要手动写入，在ide中使用快捷键shift+ctrl+F，搜索api_key，把不是“api_key = os.getenv······”的地方改为“api_key = “你的秘钥””
 ```
 
 **macOS / Linux:**
