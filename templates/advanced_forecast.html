@@ -7,8 +7,84 @@
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"
+            onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js';s.charset='utf-8';document.head.appendChild(s);})();"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"
+            onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/chart.js';document.head.appendChild(s);})();"></script>
+    <script>
+        (function () {
+            function injectOnce(id, url, charset) {
+                if (document.getElementById(id)) return;
+                const s = document.createElement('script');
+                s.id = id;
+                s.src = url;
+                if (charset) s.charset = charset;
+                document.head.appendChild(s);
+            }
+
+            function waitFor(check, timeoutMs) {
+                return new Promise((resolve, reject) => {
+                    const start = Date.now();
+                    const tick = () => {
+                        if (check()) {
+                            resolve();
+                            return;
+                        }
+                        if (Date.now() - start > timeoutMs) {
+                            reject(new Error('timeout'));
+                            return;
+                        }
+                        setTimeout(tick, 100);
+                    };
+                    tick();
+                });
+            }
+
+            window.__showChartError = function (containerId, message) {
+                try {
+                    const el = document.getElementById(containerId);
+                    if (!el) return;
+                    el.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+                } catch (e) {}
+            };
+
+            window.__ensureForecastLibs = function (opts) {
+                const needPlotly = opts ? Boolean(opts.plotly) : true;
+                const needChart = opts ? Boolean(opts.chart) : true;
+                const pending = [];
+
+                if (needPlotly) {
+                    pending.push(
+                        waitFor(() => typeof window.Plotly !== 'undefined', 6000).catch(() => {
+                            injectOnce('plotly_fallback_jsdelivr', 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js', 'utf-8');
+                            injectOnce('plotly_fallback_unpkg', 'https://unpkg.com/plotly.js-dist-min@2.27.0/plotly.min.js', 'utf-8');
+                            return waitFor(() => typeof window.Plotly !== 'undefined', 6000);
+                        })
+                    );
+                }
+
+                if (needChart) {
+                    pending.push(
+                        waitFor(() => typeof window.Chart !== 'undefined', 6000).catch(() => {
+                            injectOnce('chart_fallback_unpkg', 'https://unpkg.com/chart.js');
+                            return waitFor(() => typeof window.Chart !== 'undefined', 6000);
+                        })
+                    );
+                }
+
+                return Promise.all(pending);
+            };
+
+            setTimeout(() => {
+                if (typeof window.Plotly === 'undefined') {
+                    injectOnce('plotly_fallback_jsdelivr_fast', 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js', 'utf-8');
+                }
+                if (typeof window.Chart === 'undefined') {
+                    injectOnce('chart_fallback_unpkg_fast', 'https://unpkg.com/chart.js');
+                }
+            }, 2500);
+        })();
+    </script>
     <style>
         * {
             margin: 0;
@@ -308,15 +384,15 @@
 
         <!-- 导航标签 -->
         <div class="nav-tabs">
-            <button class="tab-btn active" onclick="switchTab('detailed')">72小时精细化</button>
-            <button class="tab-btn" onclick="switchTab('models')">多模式对比</button>
-            <button class="tab-btn" onclick="switchTab('summary')">7天趋势</button>
-            <button class="tab-btn" onclick="switchTab('ai')">AI智能分析</button>
+            <button class="tab-btn active" onclick="switchTab('detailed', event)">72小时精细化</button>
+            <button class="tab-btn" onclick="switchTab('models', event)">多模式对比</button>
+            <button class="tab-btn" onclick="switchTab('summary', event)">7天趋势</button>
+            <button class="tab-btn" onclick="switchTab('ai', event)">AI智能分析</button>
         </div>
 
         {% if not detailed_72h %}
         <div class="error-message">
-            ⚠️ 数据加载失败或网络连接异常。请刷新页面重试。
+            ⏳ 数据正在后台加载中，图表将自动显示。
         </div>
         {% endif %}
 
@@ -329,7 +405,7 @@
                 <!-- ML校正开关 -->
                 <div class="ml-correction-toggle" style="margin-bottom: 15px; padding: 12px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">🤖</span>
+                        <span style="font-size: 20px;">🧠</span>
                         <div>
                             <div style="color: white; font-weight: 600; font-size: 14px;">机器学习误差校正</div>
                             <div style="color: rgba(255,255,255,0.8); font-size: 12px;">基于随机森林模型，对温度、湿度、风速、降水进行校正</div>
@@ -349,6 +425,7 @@
                 <div id="ml_status" style="display: none; margin-bottom: 10px; padding: 8px 12px; background: #e8f5e9; border-radius: 6px; font-size: 13px; color: #2e7d32;">
                     <span id="ml_status_text">✅ ML校正已启用</span>
                 </div>
+                {% endif %}
 
                 <div class="model-selector">
                     <div class="model-checkbox">
@@ -382,6 +459,7 @@
                     <div id="detailedChart"></div>
                 </div>
 
+                {% if detailed_72h and detailed_72h.data %}
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 50px;">
                     <div class="forecast-card">
                         <h4>🌡️ 温度极值</h4>
@@ -418,12 +496,60 @@
                         <small>10米高度平均风速</small>
                     </div>
                 </div>
+                {% endif %}
 
                 <script>
                     // 存储详细数据供JS使用
-                    window.detailedData = {{ detailed_72h | tojson }};
+                    window.detailedData = {% if detailed_72h and detailed_72h.data %}{{ detailed_72h | tojson }}{% else %}null{% endif %};
                     window.mlCorrectedData = null;  // 存储校正后的数据
                     window.mlEnabled = false;       // ML校正开关状态
+
+                    window.__advancedForecastState = window.__advancedForecastState || {};
+                    window.__advancedForecastState.detailedPromise = window.__advancedForecastState.detailedPromise || null;
+
+                    function fetchJsonWithTimeout(url, timeoutMs) {
+                        return new Promise((resolve, reject) => {
+                            const timer = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+                            fetch(url)
+                                .then(r => r.json())
+                                .then(j => {
+                                    clearTimeout(timer);
+                                    resolve(j);
+                                })
+                                .catch(err => {
+                                    clearTimeout(timer);
+                                    reject(err);
+                                });
+                        });
+                    }
+
+                    async function ensureDetailedDataLoaded() {
+                        if (window.detailedData && window.detailedData.data) return window.detailedData;
+                        if (window.__advancedForecastState.detailedPromise) return window.__advancedForecastState.detailedPromise;
+
+                        const chartEl = document.getElementById('detailedChart');
+                        if (chartEl && (!chartEl.innerHTML || chartEl.innerHTML.trim() === '')) {
+                            chartEl.innerHTML = '<div class="error-message">⏳ 正在加载72小时精细化数据...</div>';
+                        }
+
+                        window.__advancedForecastState.detailedPromise = fetchJsonWithTimeout('/api/advanced-forecast/detailed-72h', 15000)
+                            .then(res => {
+                                if (res && res.success && res.data) {
+                                    window.detailedData = res.data;
+                                    return res.data;
+                                }
+                                throw new Error(res && res.error ? res.error : 'data unavailable');
+                            })
+                            .catch(err => {
+                                window.__showChartError && window.__showChartError('detailedChart', '72小时数据加载失败（网络或API不可达）。');
+                                throw err;
+                            })
+                            .finally(() => {
+                                window.__advancedForecastState.detailedPromise = null;
+                            });
+
+                        return window.__advancedForecastState.detailedPromise;
+                    }
 
                     // 切换ML校正
                     async function toggleMLCorrection() {
@@ -527,9 +653,19 @@
                     // 在 updateDetailedChart 函数中，修改为：
 
                     function updateDetailedChart() {
+                        if (typeof window.Plotly === 'undefined') {
+                            if (typeof window.__ensureForecastLibs === 'function') {
+                                window.__ensureForecastLibs({ plotly: true, chart: false })
+                                    .then(() => updateDetailedChart())
+                                    .catch(() => window.__showChartError && window.__showChartError('detailedChart', '图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。'));
+                            } else if (window.__showChartError) {
+                                window.__showChartError('detailedChart', '图表库未就绪');
+                            }
+                            return;
+                        }
                         const data = window.detailedData;
-                        if (!data || !data.full_labels) {
-                            console.error("详细数据不可用");
+                        if (!data || !data.full_labels || !data.data) {
+                            window.__showChartError && window.__showChartError('detailedChart', '72小时精细化数据不可用（后端请求超时或API不可达）。');
                             return;
                         }
 
@@ -834,17 +970,23 @@
                             margin: { l: 50, r: 120, t: 70, b: 80 }
                         };
 
-                        Plotly.newPlot('detailedChart', traces, layout);
+                        Plotly.newPlot('detailedChart', traces, layout).then(() => {
+                            try {
+                                Plotly.Plots.resize('detailedChart');
+                            } catch (e) {}
+                        });
                     }
 
                     // 初始加载
-                    updateDetailedChart();
+                    if (typeof window.__ensureForecastLibs === 'function') {
+                        window.__ensureForecastLibs({ plotly: true, chart: false })
+                            .then(() => ensureDetailedDataLoaded())
+                            .then(() => updateDetailedChart())
+                            .catch(() => window.__showChartError && window.__showChartError('detailedChart', '图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。'));
+                    } else {
+                        ensureDetailedDataLoaded().finally(() => updateDetailedChart());
+                    }
                 </script>
-                {% else %}
-                <div class="error-message">
-                    ⚠️ 72小时精细化数据暂不可用，请稍后重试。
-                </div>
-                {% endif %}
             </div>
         </div>
 
@@ -853,23 +995,30 @@
             <div class="section">
                 <h2 class="section-title">多模式数值预报对比</h2>
 
-                {% if multi_model and multi_model|length > 1 %}
                 <div class="model-selector" id="modelSelector">
-                    {% for model_key, model_data in multi_model.items() %}
-                    <div class="model-checkbox">
-                        <input type="checkbox" id="model_{{ model_key }}"
-                               {% if model_key == 'ecmwf' or model_key == 'ensemble' %}checked{% endif %}
-                               onchange="updateModelComparison()">
-                        <div class="color-indicator" style="background: {{ model_data.color }};"></div>
-                        <label for="model_{{ model_key }}">{{ model_data.name }}</label>
-                    </div>
-                    {% endfor %}
-                    <!-- ML后处理模型 -->
-                    <div class="model-checkbox">
-                        <input type="checkbox" id="model_ecmwf_ml" onchange="updateModelComparison()">
-                        <div class="color-indicator" style="background: #e67e22;"></div>
-                        <label for="model_ecmwf_ml">ECMWF (ML后处理)</label>
-                    </div>
+                    {% if multi_model and multi_model|length > 1 %}
+                        {% for model_key, model_data in multi_model.items() %}
+                        <div class="model-checkbox">
+                            <input type="checkbox" id="model_{{ model_key }}"
+                                   {% if model_key == 'ensemble' %}checked{% endif %}
+                                   onchange="updateModelComparison()">
+                            <div class="color-indicator" style="background: {{ model_data.color }};"></div>
+                            <label for="model_{{ model_key }}">{{ model_data.name }}</label>
+                        </div>
+                        {% endfor %}
+                        <div class="model-checkbox">
+                            <input type="checkbox" id="model_ecmwf_ml" onchange="updateModelComparison()">
+                            <div class="color-indicator" style="background: #e67e22;"></div>
+                            <label for="model_ecmwf_ml">ECMWF (ML后处理)</label>
+                        </div>
+                    {% else %}
+                        <div class="error-message">⏳ 正在加载多模式数据...</div>
+                        <div class="model-checkbox">
+                            <input type="checkbox" id="model_ecmwf_ml" onchange="updateModelComparison()">
+                            <div class="color-indicator" style="background: #e67e22;"></div>
+                            <label for="model_ecmwf_ml">ECMWF (ML后处理)</label>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px;">
@@ -900,15 +1049,99 @@
 
                 <script>
                     // 存储多模式数据
-                    window.multiModelData = {{ multi_model | tojson }};
+                    window.multiModelData = {% if multi_model and multi_model|length > 1 %}{{ multi_model | tojson }}{% else %}null{% endif %};
                     window.mlCorrectedMultiData = null;  // 存储多模式校正后的数据
+                    window.__advancedForecastState = window.__advancedForecastState || {};
+                    window.__advancedForecastState.multiPromise = window.__advancedForecastState.multiPromise || null;
+
+                    function renderModelSelector(models) {
+                        const container = document.getElementById('modelSelector');
+                        if (!container || !models) return;
+
+                        container.innerHTML = '';
+                        for (const [modelKey, modelData] of Object.entries(models)) {
+                            if (!modelData || !modelData.name) continue;
+                            const checked = (modelKey === 'ensemble') ? 'checked' : '';
+                            const color = modelData.color || '#3498db';
+                            container.insertAdjacentHTML('beforeend', `
+                                <div class="model-checkbox">
+                                    <input type="checkbox" id="model_${modelKey}" ${checked} onchange="updateModelComparison()">
+                                    <div class="color-indicator" style="background: ${color};"></div>
+                                    <label for="model_${modelKey}">${modelData.name}</label>
+                                </div>
+                            `);
+                        }
+
+                        container.insertAdjacentHTML('beforeend', `
+                            <div class="model-checkbox">
+                                <input type="checkbox" id="model_ecmwf_ml" onchange="updateModelComparison()">
+                                <div class="color-indicator" style="background: #e67e22;"></div>
+                                <label for="model_ecmwf_ml">ECMWF (ML后处理)</label>
+                            </div>
+                        `);
+                    }
+
+                    function fetchJsonWithTimeout(url, timeoutMs) {
+                        return new Promise((resolve, reject) => {
+                            const timer = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+                            fetch(url)
+                                .then(r => r.json())
+                                .then(j => {
+                                    clearTimeout(timer);
+                                    resolve(j);
+                                })
+                                .catch(err => {
+                                    clearTimeout(timer);
+                                    reject(err);
+                                });
+                        });
+                    }
+
+                    async function ensureMultiModelLoaded() {
+                        if (window.multiModelData) return window.multiModelData;
+                        if (window.__advancedForecastState.multiPromise) return window.__advancedForecastState.multiPromise;
+
+                        const chartEl = document.getElementById('modelComparisonChart');
+                        if (chartEl && (!chartEl.innerHTML || chartEl.innerHTML.trim() === '')) {
+                            chartEl.innerHTML = '<div class="error-message">⏳ 正在加载多模式数据...</div>';
+                        }
+
+                        window.__advancedForecastState.multiPromise = fetchJsonWithTimeout('/api/advanced-forecast/multi-model?days=7', 20000)
+                            .then(res => {
+                                if (res && res.success && res.data) {
+                                    window.multiModelData = res.data;
+                                    renderModelSelector(res.data);
+                                    return res.data;
+                                }
+                                throw new Error(res && res.error ? res.error : 'data unavailable');
+                            })
+                            .catch(err => {
+                                window.__showChartError && window.__showChartError('modelComparisonChart', '多模式数据加载失败（网络或API不可达）。');
+                                throw err;
+                            })
+                            .finally(() => {
+                                window.__advancedForecastState.multiPromise = null;
+                            });
+
+                        return window.__advancedForecastState.multiPromise;
+                    }
 
                     async function updateModelComparison() {
+                        if (typeof window.Plotly === 'undefined') {
+                            if (typeof window.__ensureForecastLibs === 'function') {
+                                await window.__ensureForecastLibs({ plotly: true, chart: false }).catch(() => {
+                                    window.__showChartError && window.__showChartError('modelComparisonChart', '图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。');
+                                });
+                            } else if (window.__showChartError) {
+                                window.__showChartError('modelComparisonChart', '图表库未就绪');
+                            }
+                            if (typeof window.Plotly === 'undefined') return;
+                        }
                         const traces = [];
                         const models = window.multiModelData;
 
                         if (!models) {
-                            console.error("多模式数据不可用");
+                            window.__showChartError && window.__showChartError('modelComparisonChart', '多模式数据不可用（后端请求超时或API不可达）。');
                             return;
                         }
 
@@ -1174,17 +1407,27 @@
                             margin: { l: 60, r: 30, t: 60, b: 80 }
                         };
 
-                        Plotly.newPlot('modelComparisonChart', traces, layout);
+                        Plotly.newPlot('modelComparisonChart', traces, layout).then(() => {
+                            try {
+                                Plotly.Plots.resize('modelComparisonChart');
+                            } catch (e) {}
+                        });
                     }
 
                     // 初始加载
-                    updateModelComparison();
+                    const modelsTabEl = document.getElementById('models');
+                    const shouldInitModels = modelsTabEl && modelsTabEl.classList.contains('active');
+                    if (shouldInitModels) {
+                        if (typeof window.__ensureForecastLibs === 'function') {
+                            window.__ensureForecastLibs({ plotly: true, chart: false })
+                                .then(() => ensureMultiModelLoaded())
+                                .then(() => updateModelComparison())
+                                .catch(() => window.__showChartError && window.__showChartError('modelComparisonChart', '图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。'));
+                        } else {
+                            ensureMultiModelLoaded().finally(() => updateModelComparison());
+                        }
+                    }
                 </script>
-                {% else %}
-                <div class="error-message">
-                    ⚠️ 多模式对比数据暂不可用，可能是网络问题或API限制。
-                </div>
-                {% endif %}
             </div>
         </div>
 
@@ -1253,6 +1496,15 @@
 
                     // 7趋势图表 - 最直接的版本（绝对能显示三个区域）
                     if (summaryData && summaryData.length > 0) {
+                        const showTenDayTrendError = (message) => {
+                            const canvas = document.getElementById('tenDayTrendChart');
+                            const container = canvas ? canvas.parentElement : null;
+                            if (container) {
+                                container.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+                            }
+                        };
+
+                        const renderTenDayTrendChart = () => {
                         const dates = summaryData.map(d => `${d.date}(${d.weekday})`);
                         const tempAvgs = summaryData.map(d => d.temp_avg);
                         const tempMins = summaryData.map(d => d.temp_min);
@@ -1386,6 +1638,19 @@
                                 }
                             }
                         });
+                        };
+
+                        if (typeof window.Chart === 'undefined') {
+                            if (typeof window.__ensureForecastLibs === 'function') {
+                                window.__ensureForecastLibs({ plotly: false, chart: true })
+                                    .then(() => renderTenDayTrendChart())
+                                    .catch(() => showTenDayTrendError('图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。'));
+                            } else {
+                                showTenDayTrendError('图表库未就绪');
+                            }
+                        } else {
+                            renderTenDayTrendChart();
+                        }
                     }
                 </script>
                 {% else %}
@@ -1399,7 +1664,7 @@
         <!-- 标签4: AI智能分析 -->
         <div id="ai" class="tab-content">
             <div class="section">
-                <h2 class="section-title">🤖 AI智能气象分析</h2>
+                <h2 class="section-title">🧠 AI智能气象分析</h2>
 
                 <div class="ai-analysis">
                     <h3>气象分析报告（基于多源数据）</h3>
@@ -1477,7 +1742,7 @@
 
     <script>
         // 标签切换功能
-        function switchTab(tabName) {
+        function switchTab(tabName, evt) {
             // 隐藏所有标签内容
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -1492,11 +1757,47 @@
             document.getElementById(tabName).classList.add('active');
 
             // 激活对应的标签按钮
-            event.target.classList.add('active');
+            const btn = (evt && evt.target) ? evt.target : null;
+            if (btn && btn.classList) {
+                btn.classList.add('active');
+            }
 
             // 如果是模型对比标签，重新绘制图表（确保数据加载）
             if (tabName === 'models') {
-                setTimeout(updateModelComparison, 100);
+                setTimeout(() => {
+                    if (typeof window.__ensureForecastLibs === 'function') {
+                        window.__ensureForecastLibs({ plotly: true, chart: false })
+                            .then(() => (typeof ensureMultiModelLoaded === 'function' ? ensureMultiModelLoaded() : null))
+                            .then(() => (typeof updateModelComparison === 'function' ? updateModelComparison() : null))
+                            .catch(() => window.__showChartError && window.__showChartError('modelComparisonChart', '图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。'));
+                    } else if (typeof updateModelComparison === 'function') {
+                        if (typeof ensureMultiModelLoaded === 'function') {
+                            ensureMultiModelLoaded().finally(() => updateModelComparison());
+                        } else {
+                            updateModelComparison();
+                        }
+                    }
+                }, 150);
+            }
+
+            if (tabName === 'detailed') {
+                setTimeout(() => {
+                    if (typeof updateDetailedChart === 'function') {
+                        if (typeof window.__ensureForecastLibs === 'function') {
+                            window.__ensureForecastLibs({ plotly: true, chart: false })
+                                .then(() => (typeof ensureDetailedDataLoaded === 'function' ? ensureDetailedDataLoaded() : null))
+                                .then(() => updateDetailedChart())
+                                .catch(() => window.__showChartError && window.__showChartError('detailedChart', '图表库加载失败，可能是外网/CDN不可达，请稍后刷新重试。'));
+                        } else if (typeof ensureDetailedDataLoaded === 'function') {
+                            ensureDetailedDataLoaded().finally(() => updateDetailedChart());
+                        } else {
+                            updateDetailedChart();
+                        }
+                        try {
+                            if (window.Plotly) Plotly.Plots.resize('detailedChart');
+                        } catch (e) {}
+                    }
+                }, 50);
             }
         }
     </script>

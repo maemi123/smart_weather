@@ -1,0 +1,27 @@
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+
+# 环境变量
+.env
+*.env
+
+# 数据文件（根据情况选择）
+# data/
+# *.csv
+# *.json
+
+# 日志
+*.log

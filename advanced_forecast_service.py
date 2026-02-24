@@ -5,6 +5,28 @@ from datetime import datetime, timedelta
 import json
 from typing import Dict, List, Optional, Tuple
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+_forecast_cache = {}
+_CACHE_TIMEOUT = 300
+
+
+def _get_cache_key(model_name: str, forecast_days: int) -> str:
+    today = datetime.now().strftime("%Y-%m-%d")
+    return f"{model_name}_{forecast_days}_{today}"
+
+
+def _check_cache(key: str):
+    if key in _forecast_cache:
+        data, timestamp = _forecast_cache[key]
+        if time.time() - timestamp < _CACHE_TIMEOUT:
+            return data
+    return None
+
+
+def _set_cache(key: str, data):
+    _forecast_cache[key] = (data, time.time())
 
 
 class AdvancedForecastService:
@@ -58,18 +80,23 @@ class AdvancedForecastService:
         self.base_url = "https://api.open-meteo.com/v1/forecast"
 
     def fetch_multi_model_forecast(self, forecast_days: int = 7) -> Dict:
-        """获取多模式预报数据 - 确保获取足够天数"""
+        """获取多模式预报数据 - 并行请求 + 缓存"""
         print(f"🔄 开始获取多模式预报数据（请求{forecast_days}天）...")
 
         results = {}
-
-        # 尝试获取更多天数的模型
         target_models = ["best_match", "ecmwf_ifs", "gfs_seamless", "icon_global"]
 
-        for model_name in target_models:
+        def fetch_single_model(model_name: str) -> Tuple[str, Optional[Dict]]:
             model_display = self.MODELS.get(model_name, model_name)
+            cache_key = _get_cache_key(model_name, forecast_days)
+            
+            cached = _check_cache(cache_key)
+            if cached:
+                print(f"  📦 使用缓存: {model_display}")
+                return model_name, cached
+            
             print(f"  正在获取 {model_display} 数据（{forecast_days}天）...")
-
+            
             try:
                 params = {
                     "latitude": self.HANGZHOU_LAT,
@@ -78,23 +105,25 @@ class AdvancedForecastService:
                                "wind_speed_10m,pressure_msl,weather_code,"
                                "et0_fao_evapotranspiration,shortwave_radiation,"
                                "soil_moisture_0_to_7cm,soil_temperature_0_to_7cm"),
-                    "forecast_days": min(forecast_days, 7),  # 获取7天
+                    "forecast_days": min(forecast_days, 7),
                     "models": model_name,
                     "timezone": "Asia/Shanghai"
                 }
 
-                response = requests.get(self.base_url, params=params, timeout=25)
+                response = requests.get(self.base_url, params=params, timeout=(3, 12))
 
                 if response.status_code == 200:
                     data = response.json()
                     processed = self._process_hourly_data(data, detailed=True)
                     if processed and processed.get("data"):
-                        results[model_name] = {
+                        result = {
                             "name": model_display,
                             "data": processed,
                             "color": self._get_model_color(model_name)
                         }
+                        _set_cache(cache_key, result)
                         print(f"    ✅ {model_display} 获取成功，{len(processed.get('timestamps', []))} 个时间点")
+                        return model_name, result
                     else:
                         print(f"    ⚠️  {model_display} 数据处理失败")
                 else:
@@ -102,8 +131,17 @@ class AdvancedForecastService:
 
             except Exception as e:
                 print(f"    ❌ {model_display} 获取异常: {str(e)}")
+            
+            return model_name, None
 
-        # 生成集合预报
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(fetch_single_model, m): m for m in target_models}
+            
+            for future in as_completed(futures):
+                model_name, result = future.result()
+                if result:
+                    results[model_name] = result
+
         if len(results) >= 2:
             results["ensemble"] = self._generate_ensemble_forecast(results)
             print(f"    ✅ 集合预报生成成功")
@@ -124,7 +162,7 @@ class AdvancedForecastService:
             "timezone": "Asia/Shanghai"
         }
         try:
-            response = requests.get(url, params=params, timeout=25)
+            response = requests.get(url, params=params, timeout=(3, 12))
             if response.status_code == 200:
                 print("✅ 历史数据获取成功")
                 return response.json()
@@ -135,8 +173,14 @@ class AdvancedForecastService:
             return {}
 
     def fetch_detailed_72h_forecast(self) -> Dict:
-        """获取72小时精细化预报（从当前时间开始）"""
+        """获取72小时精细化预报（从当前时间开始）- 带缓存"""
         print("🔄 获取72小时精细化预报...")
+        
+        cache_key = _get_cache_key("72h_detailed", 4)
+        cached = _check_cache(cache_key)
+        if cached:
+            print(f"  📦 使用缓存: 72小时精细化预报")
+            return cached
 
         params = {
             "latitude": self.HANGZHOU_LAT,
@@ -150,12 +194,13 @@ class AdvancedForecastService:
         }
 
         try:
-            response = requests.get(self.base_url, params=params, timeout=20)
+            response = requests.get(self.base_url, params=params, timeout=(3, 12))
 
             if response.status_code == 200:
                 data = response.json()
                 processed = self._process_hourly_data(data, detailed=True)
                 print(f"✅ 72小时精细化预报获取成功，数据点: {len(processed.get('timestamps', []))}")
+                _set_cache(cache_key, processed)
                 return processed
             else:
                 print(f"❌ 72小时预报获取失败: {response.status_code}")

@@ -1,17 +1,20 @@
 import numpy as np
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for
 import pandas as pd
 import requests
 from weather_service import WeatherService
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import json
 import math
 from datetime import datetime, timedelta
 from chart_generator import ChartGenerator
+from dotenv import load_dotenv
 
 import os
 import sys
 import io
 import time
+import threading
 
 from ecmwf_service import ECMWFService
 # 添加导入
@@ -28,6 +31,15 @@ forecast_service = AdvancedForecastService()
 # 初始化服务
 ecmwf_service = ECMWFService()
 
+def _warm_advanced_forecast_cache():
+    try:
+        forecast_service.fetch_detailed_72h_forecast()
+        forecast_service.fetch_multi_model_forecast(7)
+    except Exception:
+        pass
+
+threading.Thread(target=_warm_advanced_forecast_cache, daemon=True).start()
+
 # 修复Windows控制台编码问题
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
@@ -36,7 +48,7 @@ if sys.platform == 'win32':
 app = Flask(__name__)
 
 # 初始化天气服务（替换YOUR_QWEATHER_KEY）
-QWEATHER_KEY = "REMOVED_KEY_2"
+QWEATHER_KEY = "1"
 weather_service = WeatherService(QWEATHER_KEY)
 
 _DASH_CACHE = {}
@@ -64,8 +76,9 @@ def get_weather_data():
 
 # 2. 调用DeepSeek API进行AI分析
 def get_ai_analysis(weather_text):
-    # TODO: 替换为你的真实API Key（下一步会获取）
-    api_key = "REMOVED_KEY_5"
+    # TODO: 
+    load_dotenv()  # 加载.env文件
+    api_key = os.getenv('DEEPSEEK_API_KEY')
     url = "https://api.deepseek.com/v1/chat/completions"
 
     headers = {
@@ -986,27 +999,41 @@ def advanced_forecast():
         print(f"\n{'=' * 60}")
         print(f"📡 开始获取专业预报数据 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # 1. 获取72小时精细化预报
-        print("1. 获取72小时精细化预报...")
-        detailed_72h = forecast_service.fetch_detailed_72h_forecast()
-        print(f"   结果: {'成功' if detailed_72h else '失败'}")
+        detailed_72h = {}
+        multi_model = {}
 
-        # 2. 获取多模式7天预报（关键修改：改为7天）
-        print("2. 获取多模式预报（7天）...")
-        multi_model = forecast_service.fetch_multi_model_forecast(forecast_days=7)  # 改为7
-        print(f"   获取到 {len(multi_model)} 个模型: {list(multi_model.keys())}")
+        executor = ThreadPoolExecutor(max_workers=2)
+        try:
+            future_72h = executor.submit(forecast_service.fetch_detailed_72h_forecast)
+            future_multi = executor.submit(forecast_service.fetch_multi_model_forecast, 7)
+
+            try:
+                detailed_72h = future_72h.result(timeout=1.2)
+            except TimeoutError:
+                detailed_72h = {}
+
+            try:
+                multi_model = future_multi.result(timeout=1.2)
+            except TimeoutError:
+                multi_model = {}
+        finally:
+            executor.shutdown(wait=False)
+
+        print(f"   72小时预报: {'成功' if detailed_72h else '失败'}")
+        print(f"   多模式预报: 获取到 {len(multi_model)} 个模型: {list(multi_model.keys())}")
 
         # 调试：查看获取了哪些模型
-        for model_key, model_info in multi_model.items():
-            if 'data' in model_info and 'timestamps' in model_info['data']:
-                timestamps = model_info['data']['timestamps']
-                print(f"   {model_key}: {len(timestamps)} 个时间点")
-                if timestamps:
-                    print(f"     时间范围: {timestamps[0]} 到 {timestamps[-1]}")
+        if isinstance(multi_model, dict):
+            for model_key, model_info in multi_model.items():
+                if isinstance(model_info, dict) and 'data' in model_info and 'timestamps' in model_info['data']:
+                    timestamps = model_info['data']['timestamps']
+                    print(f"   {model_key}: {len(timestamps)} 个时间点")
+                    if timestamps:
+                        print(f"     时间范围: {timestamps[0]} 到 {timestamps[-1]}")
 
         # 3. 生成7天摘要（关键修改：改为7天）
         print("3. 生成7天摘要...")
-        summary_10day = forecast_service.generate_10day_summary(multi_model)
+        summary_10day = forecast_service.generate_10day_summary(multi_model) if multi_model else []
         print(f"   生成 {len(summary_10day)} 天的摘要")
 
         # 4. 准备AI分析
@@ -1038,6 +1065,25 @@ def advanced_forecast():
                                summary_10day=[],
                                ai_analysis_text="数据加载失败",
                                now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
+@app.route('/api/advanced-forecast/detailed-72h')
+def api_advanced_forecast_detailed_72h():
+    try:
+        data = forecast_service.fetch_detailed_72h_forecast()
+        return jsonify({"success": bool(data), "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": {}}), 500
+
+
+@app.route('/api/advanced-forecast/multi-model')
+def api_advanced_forecast_multi_model():
+    try:
+        days = request.args.get('days', default=7, type=int)
+        data = forecast_service.fetch_multi_model_forecast(days)
+        return jsonify({"success": bool(data), "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": {}}), 500
 
 
 @app.route('/apply-ml-correction', methods=['POST'])
@@ -1182,7 +1228,8 @@ def generate_ai_analysis():
 
         for attempt in range(max_retries):
             try:
-                api_key = "REMOVED_KEY_5"  # 替换为你的API Key
+                load_dotenv()  # 加载.env文件
+                api_key = os.getenv('DEEPSEEK_API_KEY')
                 url = "https://api.deepseek.com/v1/chat/completions"
 
                 prompt = f"""

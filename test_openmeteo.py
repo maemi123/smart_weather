@@ -140,7 +140,7 @@ def test_alternative_api():
     print("=" * 60)
 
     # 心知天气API
-    api_key = "S9oKXL4qyEJ7zqKJx"  # 你的心知天气API Key
+    api_key = "1"  # 你的心知天气API Key
     url = "https://api.seniverse.com/v3/weather/daily.json"
 
     params = {

@@ -5,13 +5,16 @@ from metpy.units import units
 import requests
 import json
 from typing import Dict, Any
+import os
+from dotenv import load_dotenv
 
 class SoundingAnalyzer:
     """探空数据分析器"""
 
     def __init__(self):
         # AI API配置 (复用app.py中的配置)
-        self.api_key = "REMOVED_KEY_5"
+        load_dotenv()  # 加载.env文件
+        self.api_key = os.getenv('DEEPSEEK_API_KEY')
         self.api_url = "https://api.deepseek.com/v1/chat/completions"
 
     def analyze(self, data: pd.DataFrame, indices: Dict[str, Any] = None) -> Dict[str, Any]:
