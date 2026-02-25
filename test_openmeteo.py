@@ -134,13 +134,13 @@ def test_openmeteo_api():
 
 
 def test_alternative_api():
-    """测试备用API（心知天气）"""
+    """测试备用API"""
     print("\n" + "=" * 60)
-    print("🌐 测试备用API: 心知天气")
+    print("🌐 测试备用API:")
     print("=" * 60)
 
-    # 心知天气API
-    api_key = "1"  # 你的心知天气API Key
+    
+    api_key = "1"  # API Key
     url = "https://api.seniverse.com/v3/weather/daily.json"
 
     params = {
@@ -153,7 +153,7 @@ def test_alternative_api():
     }
 
     try:
-        print(f"\n请求心知天气 {params['days']} 天数据...")
+        print(f"\n请求天气 {params['days']} 天数据...")
         response = requests.get(url, params=params, timeout=10)
 
         if response.status_code == 200:
@@ -170,9 +170,9 @@ def test_alternative_api():
                           f"{day['low']}~{day['high']}°C")
 
                 if len(daily_data) >= 7:
-                    print(f"\n🎉 心知天气支持获取 {len(daily_data)} 天数据！")
+                    print(f"\n🎉 天气支持获取 {len(daily_data)} 天数据！")
                 else:
-                    print(f"\n⚠️ 心知天气只返回 {len(daily_data)} 天数据")
+                    print(f"\n⚠️ 天气只返回 {len(daily_data)} 天数据")
             else:
                 print(f"❌ 返回数据格式异常")
                 print(f"   响应: {response.text[:200]}")
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # 测试Open-Meteo
     test_openmeteo_api()
 
-    # 测试心知天气
+    # 测试天气
     test_alternative_api()
 
     print("\n" + "=" * 60)

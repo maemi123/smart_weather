@@ -289,7 +289,6 @@ def main():
 
         print(f"\n💡 备选方案:")
         print(f"   如果Norway-ECMWF无法使用，可以:")
-        print(f"   - 使用心知天气API（之前成功的）")
         print(f"   - 使用模拟数据完成开发")
         print(f"   - 在文档中说明尝试了多种数据源")
 

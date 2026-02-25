@@ -12,7 +12,7 @@ class WeatherService:
         self.cache_timeout = 300  # 5分钟缓存
 
     def get_daily_forecast(self, location="hangzhou"):  # 使用城市拼音
-        """获取3天天气预报 - 心知天气版本"""
+        """获取3天天气预报 - 心天气版本"""
         cache_key = f"forecast_{location}"
 
         # 检查缓存
@@ -32,7 +32,7 @@ class WeatherService:
             "days": 3  # 获取3天预报
         }
 
-        print(f"正在请求心知天气API...")
+        print(f"正在请求心天气API...")
 
         try:
             response = requests.get(url, params=params, timeout=10)
@@ -44,7 +44,7 @@ class WeatherService:
                 # 转换为DataFrame
                 weather_list = []
                 for day in daily_data:
-                    # 心知天气的日期格式是 "2024-12-27"
+                    # 心=天气的日期格式是 "2024-12-27"
                     date_str = day["date"]
                     # 转换为更友好的格式，如 "12月27日 周五"
                     try:
@@ -79,7 +79,7 @@ class WeatherService:
 
                 # 更新缓存
                 self.cache[cache_key] = (df, time.time())
-                print("心知天气API请求成功！")
+                print("心天气API请求成功！")
                 return df
             else:
                 print(f"API响应异常: {data}")
