@@ -75,9 +75,19 @@
 
 ### 安装步骤
 
+> **⚠️ 注意**：本项目包含较多历史数据文件，仓库体积较大（约150MB）。建议先配置Git缓冲区，并使用浅克隆以加快下载速度。
+
 ```bash
-# 克隆项目
-git clone https://github.com/maemi123/smart_weather.git
+# 配置Git缓冲区（防止大文件传输中断）
+git config --global http.postBuffer 524288000
+git config --global core.compression 0
+
+# 浅克隆（只下载最近1个commit，速度更快）
+git clone --depth 1 https://github.com/maemi123/smart_weather.git
+
+# 或者完整克隆（如需完整历史记录）
+# git clone https://github.com/maemi123/smart_weather.git
+
 cd smart_weather
 
 # 创建虚拟环境
