@@ -105,11 +105,16 @@ pip install -r requirements.txt
 # 配置 API 密钥（可选，用于 AI 农事顾问）
 echo "DEEPSEEK_API_KEY=你的密钥" > .env
 
-# 运行
+# 运行（方式1：使用启动脚本）
+run_flask.bat
+
+# 或者（方式2：直接运行）
 python app.py
 ```
 
 访问 http://127.0.0.1:5000 即可使用。
+
+> **💡 提示**：Windows 用户推荐使用 `run_flask.bat` 启动，它会自动检测虚拟环境并启动应用。
 
 ---
 
