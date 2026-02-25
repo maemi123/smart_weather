@@ -77,7 +77,7 @@ def get_weather_data():
 # 2. 调用DeepSeek API进行AI分析
 def get_ai_analysis(weather_text):
     # TODO: 
-    load_dotenv()  # 加载.env文件
+    load_dotenv(encoding='utf-8')  # 加载.env文件，指定UTF-8编码
     api_key = os.getenv('DEEPSEEK_API_KEY')
     url = "https://api.deepseek.com/v1/chat/completions"
 
@@ -1228,7 +1228,7 @@ def generate_ai_analysis():
 
         for attempt in range(max_retries):
             try:
-                load_dotenv()  # 加载.env文件
+                load_dotenv(encoding='utf-8')  # 加载.env文件，指定UTF-8编码
                 api_key = os.getenv('DEEPSEEK_API_KEY')
                 url = "https://api.deepseek.com/v1/chat/completions"
 

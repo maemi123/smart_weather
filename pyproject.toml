@@ -1,0 +1,65 @@
+[project]
+name = "smart_weather"
+version = "1.0.0"
+description = "智慧天气 - 综合气象服务系统"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+license = {text = "MIT"}
+authors = [
+    {name = "maemi123", email = "1021389463@qq.com"}
+]
+keywords = ["weather", "forecast", "agriculture", "flask", "meteorology"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+
+# 主要依赖（核心功能必需）
+dependencies = [
+    "Flask>=3.0.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0,<2.0.0",
+    "matplotlib>=3.8.0",
+    "requests>=2.30.0",
+    "python-dotenv>=1.0.0",
+    "scikit-learn>=1.3.0",
+    "plotly>=5.0.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
+    "scipy>=1.10.0",
+    "xarray>=2023.0.0",
+    "MetPy>=1.5.0",
+    "Pint>=0.20.0",
+    "pyproj>=3.5.0",
+    "joblib>=1.3.0",
+    "threadpoolctl>=3.0.0",
+]
+
+[project.optional-dependencies]
+# 开发依赖
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+# 数据下载依赖
+data = [
+    "cdsapi>=0.6.0",
+    "cfgrib>=0.9.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/maemi123/smart_weather"
+Repository = "https://github.com/maemi123/smart_weather"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
