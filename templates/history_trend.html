@@ -12,7 +12,53 @@
     <link href="{{ url_for('static', filename='css/common.css') }}" rel="stylesheet">
     <!-- 引入Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"
-            onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js';document.head.appendChild(s);"></script>
+            onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js';s.charset='utf-8';document.head.appendChild(s);})();"></script>
+    <style>
+        .chart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: linear-gradient(135deg, #fff5eb 0%, #ffecd2 100%);
+            border-radius: 12px;
+            color: #e67e22;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .chart-loading::before {
+            content: '⏳';
+            margin-right: 10px;
+            font-size: 1.5em;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .chart-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: linear-gradient(135deg, #fee 0%, #fdd 100%);
+            border-radius: 12px;
+            color: #c0392b;
+            font-size: 1em;
+            text-align: center;
+            padding: 20px;
+        }
+        .chart-error::before {
+            content: '⚠️';
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .chart-error .retry-hint {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
     <!-- 引入自定义样式 -->
 <link href="{{ url_for('static', filename='css/history.css') }}" rel="stylesheet">
 <style>
@@ -197,136 +243,227 @@
 <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // 1. 气温趋势图
-    const tempTrace = {
-        x: {{ temp_data['years'] | tojson }},
-        y: {{ temp_data['values'] | tojson }},
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: '年平均气温',
-        line: {color: '#e74c3c', width: 3},
-        marker: {size: 8}
-    };
-
-    const tempTrendLine = {
-        x: {{ temp_data['years'] | tojson }},
-        y: {{ temp_data['trend_line'] | tojson }},
-        type: 'scatter',
-        mode: 'lines',
-        name: '线性趋势',
-        line: {color: '#333', width: 2, dash: 'dash'}
-    };
-
-    Plotly.newPlot('tempTrendChart', [tempTrace, tempTrendLine], {
-        title: '年平均气温变化趋势',
-        xaxis: {title: '年份'},
-        yaxis: {title: '温度 (°C)'},
-        hovermode: 'x unified'
-    });
-
-    // 2. 降水趋势图
-    const precipBar = {
-        x: {{ precip_data['years'] | tojson }},
-        y: {{ precip_data['values'] | tojson }},
-        type: 'bar',
-        name: '年降水量',
-        marker: {color: '#3498db', opacity: 0.7}
-    };
-
-    const rainyDaysLine = {
-        x: {{ precip_data['years'] | tojson }},
-        y: {{ precip_data['rainy_days'] | tojson }},
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: '雨日数',
-        yaxis: 'y2',
-        line: {color: '#2980b9', width: 2}
-    };
-
-    Plotly.newPlot('precipTrendChart', [precipBar, rainyDaysLine], {
-        title: '年降水量与雨日数变化',
-        xaxis: {title: '年份'},
-        yaxis: {title: '降水量 (mm)'},
-        yaxis2: {
-            title: '雨日数 (天)',
-            overlaying: 'y',
-            side: 'right'
-        },
-        hovermode: 'x unified'
-    });
-
-    // 3. 极端天气图
-    const hotTrace = {
-        x: {{ extreme_data['years'] | tojson }},
-        y: {{ extreme_data['hot_days'] | tojson }},
-        type: 'bar',
-        name: '高温日数',
-        marker: {color: '#e67e22'}
-    };
-
-    const coldTrace = {
-        x: {{ extreme_data['years'] | tojson }},
-        y: {{ extreme_data['cold_days'] | tojson }},
-        type: 'bar',
-        name: '低温日数',
-        marker: {color: '#3498db'}
-    };
-
-    const heavyRainTrace = {
-        x: {{ extreme_data['years'] | tojson }},
-        y: {{ extreme_data['heavy_rain_days'] | tojson }},
-        type: 'bar',
-        name: '暴雨日数',
-        marker: {color: '#c0392b'}
-    };
-
-    const thunderTrace = {
-        x: {{ extreme_data['years'] | tojson }},
-        y: {{ extreme_data['thunder_days'] | tojson }},
-        type: 'bar',
-        name: '雷暴日数',
-        marker: {color: '#8e44ad'}
-    };
+(function() {
+    // 显示加载中状态
+    function showLoading(containerId) {
+        const el = document.getElementById(containerId);
+        if (el) el.innerHTML = '<div class="chart-loading">正在加载图表...</div>';
+    }
     
-    const snowTrace = {
-        x: {{ extreme_data['years'] | tojson }},
-        y: {{ extreme_data['snow_days'] | tojson }},
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: '降雪日数',
-        line: {color: '#95a5a6', width: 2}
-    };
-
-    Plotly.newPlot('extremeTrendChart', [hotTrace, coldTrace, heavyRainTrace, thunderTrace, snowTrace], {
-        title: '极端天气日数统计',
-        barmode: 'group',
-        xaxis: {title: '年份'},
-        yaxis: {title: '天数'},
-        hovermode: 'x unified'
-    }).then(() => {
-        const chartId = 'extremeTrendChart';
-
-        const applyVisibility = () => {
-            const visibleHot = document.getElementById('extremeToggleHot').checked ? true : 'legendonly';
-            const visibleCold = document.getElementById('extremeToggleCold').checked ? true : 'legendonly';
-            const visibleHeavyRain = document.getElementById('extremeToggleHeavyRain').checked ? true : 'legendonly';
-            const visibleThunder = document.getElementById('extremeToggleThunder').checked ? true : 'legendonly';
-            const visibleSnow = document.getElementById('extremeToggleSnow').checked ? true : 'legendonly';
-
-            Plotly.restyle(chartId, {visible: visibleHot}, [0]);
-            Plotly.restyle(chartId, {visible: visibleCold}, [1]);
-            Plotly.restyle(chartId, {visible: visibleHeavyRain}, [2]);
-            Plotly.restyle(chartId, {visible: visibleThunder}, [3]);
-            Plotly.restyle(chartId, {visible: visibleSnow}, [4]);
+    // 显示错误状态
+    function showError(containerId, message) {
+        const el = document.getElementById(containerId);
+        if (el) el.innerHTML = '<div class="chart-error">' + message + '<div class="retry-hint">请刷新页面重试</div></div>';
+    }
+    
+    // 等待 Plotly 加载完成
+    function waitForPlotly(timeoutMs) {
+        return new Promise((resolve, reject) => {
+            if (typeof window.Plotly !== 'undefined') {
+                resolve();
+                return;
+            }
+            const start = Date.now();
+            const tick = () => {
+                if (typeof window.Plotly !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                if (Date.now() - start > timeoutMs) {
+                    reject(new Error('Plotly 加载超时'));
+                    return;
+                }
+                setTimeout(tick, 100);
+            };
+            tick();
+        });
+    }
+    
+    // 注入备用 CDN
+    function injectFallbackCDN() {
+        const fallbacks = [
+            { id: 'plotly_fallback_jsdelivr', url: 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js' },
+            { id: 'plotly_fallback_unpkg', url: 'https://unpkg.com/plotly.js-dist-min@2.27.0/plotly.min.js' }
+        ];
+        
+        fallbacks.forEach(item => {
+            if (!document.getElementById(item.id)) {
+                const s = document.createElement('script');
+                s.id = item.id;
+                s.src = item.url;
+                s.charset = 'utf-8';
+                document.head.appendChild(s);
+            }
+        });
+    }
+    
+    // 初始化图表
+    function initCharts() {
+        // 1. 气温趋势图
+        const tempTrace = {
+            x: {{ temp_data['years'] | tojson }},
+            y: {{ temp_data['values'] | tojson }},
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: '年平均气温',
+            line: {color: '#e74c3c', width: 3},
+            marker: {size: 8}
         };
 
-        document.getElementById('extremeToggleHot').addEventListener('change', applyVisibility);
-        document.getElementById('extremeToggleCold').addEventListener('change', applyVisibility);
-        document.getElementById('extremeToggleHeavyRain').addEventListener('change', applyVisibility);
-        document.getElementById('extremeToggleThunder').addEventListener('change', applyVisibility);
-        document.getElementById('extremeToggleSnow').addEventListener('change', applyVisibility);
-        applyVisibility();
-    })
+        const tempTrendLine = {
+            x: {{ temp_data['years'] | tojson }},
+            y: {{ temp_data['trend_line'] | tojson }},
+            type: 'scatter',
+            mode: 'lines',
+            name: '线性趋势',
+            line: {color: '#333', width: 2, dash: 'dash'}
+        };
+
+        Plotly.newPlot('tempTrendChart', [tempTrace, tempTrendLine], {
+            title: '年平均气温变化趋势',
+            xaxis: {title: '年份'},
+            yaxis: {title: '温度 (°C)'},
+            hovermode: 'x unified'
+        });
+
+        // 2. 降水趋势图
+        const precipBar = {
+            x: {{ precip_data['years'] | tojson }},
+            y: {{ precip_data['values'] | tojson }},
+            type: 'bar',
+            name: '年降水量',
+            marker: {color: '#3498db', opacity: 0.7}
+        };
+
+        const rainyDaysLine = {
+            x: {{ precip_data['years'] | tojson }},
+            y: {{ precip_data['rainy_days'] | tojson }},
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: '雨日数',
+            yaxis: 'y2',
+            line: {color: '#2980b9', width: 2}
+        };
+
+        Plotly.newPlot('precipTrendChart', [precipBar, rainyDaysLine], {
+            title: '年降水量与雨日数变化',
+            xaxis: {title: '年份'},
+            yaxis: {title: '降水量 (mm)'},
+            yaxis2: {
+                title: '雨日数 (天)',
+                overlaying: 'y',
+                side: 'right'
+            },
+            hovermode: 'x unified'
+        });
+
+        // 3. 极端天气图
+        const hotTrace = {
+            x: {{ extreme_data['years'] | tojson }},
+            y: {{ extreme_data['hot_days'] | tojson }},
+            type: 'bar',
+            name: '高温日数',
+            marker: {color: '#e67e22'}
+        };
+
+        const coldTrace = {
+            x: {{ extreme_data['years'] | tojson }},
+            y: {{ extreme_data['cold_days'] | tojson }},
+            type: 'bar',
+            name: '低温日数',
+            marker: {color: '#3498db'}
+        };
+
+        const heavyRainTrace = {
+            x: {{ extreme_data['years'] | tojson }},
+            y: {{ extreme_data['heavy_rain_days'] | tojson }},
+            type: 'bar',
+            name: '暴雨日数',
+            marker: {color: '#c0392b'}
+        };
+
+        const thunderTrace = {
+            x: {{ extreme_data['years'] | tojson }},
+            y: {{ extreme_data['thunder_days'] | tojson }},
+            type: 'bar',
+            name: '雷暴日数',
+            marker: {color: '#8e44ad'}
+        };
+        
+        const snowTrace = {
+            x: {{ extreme_data['years'] | tojson }},
+            y: {{ extreme_data['snow_days'] | tojson }},
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: '降雪日数',
+            line: {color: '#95a5a6', width: 2}
+        };
+
+        Plotly.newPlot('extremeTrendChart', [hotTrace, coldTrace, heavyRainTrace, thunderTrace, snowTrace], {
+            title: '极端天气日数统计',
+            barmode: 'group',
+            xaxis: {title: '年份'},
+            yaxis: {title: '天数'},
+            hovermode: 'x unified'
+        }).then(() => {
+            const chartId = 'extremeTrendChart';
+
+            const applyVisibility = () => {
+                const visibleHot = document.getElementById('extremeToggleHot').checked ? true : 'legendonly';
+                const visibleCold = document.getElementById('extremeToggleCold').checked ? true : 'legendonly';
+                const visibleHeavyRain = document.getElementById('extremeToggleHeavyRain').checked ? true : 'legendonly';
+                const visibleThunder = document.getElementById('extremeToggleThunder').checked ? true : 'legendonly';
+                const visibleSnow = document.getElementById('extremeToggleSnow').checked ? true : 'legendonly';
+
+                Plotly.restyle(chartId, {visible: visibleHot}, [0]);
+                Plotly.restyle(chartId, {visible: visibleCold}, [1]);
+                Plotly.restyle(chartId, {visible: visibleHeavyRain}, [2]);
+                Plotly.restyle(chartId, {visible: visibleThunder}, [3]);
+                Plotly.restyle(chartId, {visible: visibleSnow}, [4]);
+            };
+
+            document.getElementById('extremeToggleHot').addEventListener('change', applyVisibility);
+            document.getElementById('extremeToggleCold').addEventListener('change', applyVisibility);
+            document.getElementById('extremeToggleHeavyRain').addEventListener('change', applyVisibility);
+            document.getElementById('extremeToggleThunder').addEventListener('change', applyVisibility);
+            document.getElementById('extremeToggleSnow').addEventListener('change', applyVisibility);
+            applyVisibility();
+        });
+    }
+    
+    // 显示加载状态
+    showLoading('tempTrendChart');
+    showLoading('precipTrendChart');
+    showLoading('extremeTrendChart');
+    
+    // 等待 Plotly 加载
+    waitForPlotly(6000)
+        .then(() => {
+            initCharts();
+        })
+        .catch(() => {
+            // 主 CDN 失败，尝试备用 CDN
+            console.log('主 CDN 加载失败，尝试备用 CDN...');
+            injectFallbackCDN();
+            return waitForPlotly(8000);
+        })
+        .then(() => {
+            initCharts();
+        })
+        .catch((err) => {
+            console.error('图表库加载失败:', err);
+            showError('tempTrendChart', '图表库加载失败<br>可能是网络连接问题');
+            showError('precipTrendChart', '图表库加载失败<br>可能是网络连接问题');
+            showError('extremeTrendChart', '图表库加载失败<br>可能是网络连接问题');
+        });
+    
+    // 主动检测：3秒后检查是否加载成功
+    setTimeout(() => {
+        if (typeof window.Plotly === 'undefined') {
+            injectFallbackCDN();
+        }
+    }, 3000);
+})();
 </script>
 
 </body>

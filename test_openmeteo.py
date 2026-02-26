@@ -198,8 +198,4 @@ if __name__ == "__main__":
     print("✅ 测试完成")
     print("=" * 60)
 
-    # 给出建议
-    print("\n💡 建议:")
-    print("1. 如果Open-Meteo只能获取3天，考虑使用心知天气")
-    print("2. 或者组合使用：Open-Meteo获取详细小时数据 + 心知天气获取多天趋势")
-    print("3. 也可以考虑其他免费API：和风天气、AccuWeather等")
+    

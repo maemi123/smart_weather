@@ -13,7 +13,7 @@ class SoundingAnalyzer:
 
     def __init__(self):
         # AI API配置 (复用app.py中的配置)
-        load_dotenv(encoding='utf-8')  # 加载.env文件，指定UTF-8编码
+        load_dotenv()  # 加载.env文件
         self.api_key = os.getenv('DEEPSEEK_API_KEY')
         self.api_url = "https://api.deepseek.com/v1/chat/completions"
 

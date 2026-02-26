@@ -104,8 +104,4 @@ try:
 
 except Exception as e:
     print(f"   ❌ 测试失败: {type(e).__name__}: {e}")
-    print("\n💡 可能的解决方案:")
-    print("   1. 检查配置文件格式（不要UID前缀）")
-    print("   2. 更新cdsapi: pip install --upgrade cdsapi")
-    print("   3. 检查网络连接")
-    print("   4. 暂时使用模拟数据，不影响毕业设计价值")
+   
