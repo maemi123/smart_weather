@@ -5,11 +5,32 @@ from datetime import datetime, timedelta
 import json
 from typing import Dict, List, Optional, Tuple
 import time
+import builtins
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from forecast_issue_time import estimate_runtime_issue_time
+from station_config import (
+    HANGZHOU_LAT,
+    HANGZHOU_LON,
+    HANGZHOU_STATION_ID,
+    HANGZHOU_STATION_NAME,
+    get_hangzhou_station_metadata,
+)
 
 
 _forecast_cache = {}
 _CACHE_TIMEOUT = 300
+
+
+def print(*args, **kwargs):  # type: ignore[override]
+    """Best-effort console logging for Windows GBK terminals."""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    safe_args = [
+        str(arg).encode(encoding, errors="ignore").decode(encoding, errors="ignore")
+        for arg in args
+    ]
+    return builtins.print(*safe_args, **kwargs)
 
 
 def _get_cache_key(model_name: str, forecast_days: int) -> str:
@@ -32,8 +53,8 @@ def _set_cache(key: str, data):
 class AdvancedForecastService:
     """高级预报数据服务 - 修复版"""
 
-    HANGZHOU_LAT = 30.25
-    HANGZHOU_LON = 120.17
+    HANGZHOU_LAT = HANGZHOU_LAT
+    HANGZHOU_LON = HANGZHOU_LON
 
     # Open-Meteo支持的模型
     MODELS = {
@@ -78,6 +99,23 @@ class AdvancedForecastService:
 
     def __init__(self):
         self.base_url = "https://api.open-meteo.com/v1/forecast"
+        self.station_metadata = get_hangzhou_station_metadata()
+
+    def _build_runtime_metadata(self) -> Dict:
+        issue_estimate = estimate_runtime_issue_time()
+        return {
+            "issue_time_estimated": issue_estimate.issue_time_local.isoformat(sep=" ")
+            if issue_estimate.issue_time_local
+            else None,
+            "issue_cycle": issue_estimate.issue_cycle,
+            "issue_time_reason": issue_estimate.reason,
+            "station": {
+                "station_id": HANGZHOU_STATION_ID,
+                "station_name": HANGZHOU_STATION_NAME,
+                "latitude": self.HANGZHOU_LAT,
+                "longitude": self.HANGZHOU_LON,
+            },
+        }
 
     def fetch_multi_model_forecast(self, forecast_days: int = 7) -> Dict:
         """获取多模式预报数据 - 并行请求 + 缓存"""
@@ -85,6 +123,7 @@ class AdvancedForecastService:
 
         results = {}
         target_models = ["best_match", "ecmwf_ifs", "gfs_seamless", "icon_global"]
+        runtime_metadata = self._build_runtime_metadata()
 
         def fetch_single_model(model_name: str) -> Tuple[str, Optional[Dict]]:
             model_display = self.MODELS.get(model_name, model_name)
@@ -114,7 +153,11 @@ class AdvancedForecastService:
 
                 if response.status_code == 200:
                     data = response.json()
-                    processed = self._process_hourly_data(data, detailed=True)
+                    processed = self._process_hourly_data(
+                        data,
+                        detailed=True,
+                        runtime_metadata=runtime_metadata,
+                    )
                     if processed and processed.get("data"):
                         result = {
                             "name": model_display,
@@ -192,13 +235,18 @@ class AdvancedForecastService:
             "models": "ecmwf_ifs",
             "timezone": "Asia/Shanghai"
         }
+        runtime_metadata = self._build_runtime_metadata()
 
         try:
             response = requests.get(self.base_url, params=params, timeout=(3, 12))
 
             if response.status_code == 200:
                 data = response.json()
-                processed = self._process_hourly_data(data, detailed=True)
+                processed = self._process_hourly_data(
+                    data,
+                    detailed=True,
+                    runtime_metadata=runtime_metadata,
+                )
                 print(f"✅ 72小时精细化预报获取成功，数据点: {len(processed.get('timestamps', []))}")
                 _set_cache(cache_key, processed)
                 return processed
@@ -212,7 +260,12 @@ class AdvancedForecastService:
 
     # 只修改有问题的函数，保持其他不变
 
-    def _process_hourly_data(self, raw_data: Dict, detailed: bool = False) -> Dict:
+    def _process_hourly_data(
+        self,
+        raw_data: Dict,
+        detailed: bool = False,
+        runtime_metadata: Optional[Dict] = None,
+    ) -> Dict:
         """处理原始小时数据"""
         if "hourly" not in raw_data:
             return {"timestamps": [], "full_labels": [], "dates": [], "hours": [], "data": {}}
@@ -261,8 +314,11 @@ class AdvancedForecastService:
             "dates": date_labels,
             "hours": hour_labels,
             "day_labels": day_labels,
-            "data": {}
+            "data": {},
+            "station": self.station_metadata,
         }
+        if runtime_metadata:
+            result.update(runtime_metadata)
 
         # 提取各参数数据
         for key, values in hourly.items():

@@ -1,0 +1,1021 @@
+{
+  "generated_at": "2026-04-11 13:00:28",
+  "forecast_dir": "data\\hangzhou_openmeteo",
+  "station": {
+    "station_id": "58457",
+    "station_name": "杭州国家站 / 馒头山",
+    "latitude": 30.2444,
+    "longitude": 120.1528,
+    "timezone": "Asia/Shanghai"
+  },
+  "forecast_audit": {
+    "forecast_dir": "data\\hangzhou_openmeteo",
+    "file_count": 100,
+    "loaded_file_count": 97,
+    "skipped_file_count": 3,
+    "collection_time_counts": {
+      "0415": 48,
+      "1107": 1,
+      "1615": 47,
+      "1616": 1,
+      "1804": 1,
+      "1928": 1,
+      "2031": 1
+    },
+    "invalid_files": [
+      {
+        "file": "HZ_forecast_2026-02-15_20260215_110724.csv",
+        "status": "skipped",
+        "issue_cycle": null,
+        "issue_time_local": null,
+        "reason": "outside_supported_windows",
+        "used_tolerance": false
+      },
+      {
+        "file": "HZ_forecast_2026-02-26_20260226_192803.csv",
+        "status": "skipped",
+        "issue_cycle": null,
+        "issue_time_local": null,
+        "reason": "outside_supported_windows",
+        "used_tolerance": false
+      },
+      {
+        "file": "HZ_forecast_2026-04-07_20260407_203119.csv",
+        "status": "skipped",
+        "issue_cycle": null,
+        "issue_time_local": null,
+        "reason": "outside_supported_windows",
+        "used_tolerance": false
+      }
+    ],
+    "loaded_files": [
+      {
+        "file": "HZ_forecast_2026-02-15_20260215_161554.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-15 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-16_20260216_041530.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-15 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-16_20260216_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-16 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-17_20260217_041529.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-16 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-17_20260217_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-17 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-18_20260218_041530.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-17 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-18_20260218_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-18 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-19_20260219_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-18 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-19_20260219_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-19 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-20_20260220_041531.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-19 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-20_20260220_161559.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-20 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-21_20260221_041531.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-20 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-21_20260221_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-21 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-22_20260222_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-21 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-22_20260222_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-22 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-23_20260223_041530.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-22 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-23_20260223_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-23 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-24_20260224_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-23 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-24_20260224_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-24 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-25_20260225_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-24 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-25_20260225_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-25 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-26_20260226_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-25 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-27_20260227_041531.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-26 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-27_20260227_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-27 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-02-28_20260228_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-27 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-02-28_20260228_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-02-28 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-01_20260301_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-02-28 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-01_20260301_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-01 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-02_20260302_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-01 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-02_20260302_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-02 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-03_20260303_041534.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-02 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-03_20260303_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-03 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-04_20260304_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-03 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-04_20260304_161650.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-04 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-05_20260305_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-04 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-05_20260305_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-05 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-06_20260306_041534.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-05 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-06_20260306_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-06 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-07_20260307_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-06 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-07_20260307_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-07 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-08_20260308_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-07 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-08_20260308_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-08 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-09_20260309_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-08 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-09_20260309_161557.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-09 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-10_20260310_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-09 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-10_20260310_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-10 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-11_20260311_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-10 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-11_20260311_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-11 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-12_20260312_041534.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-11 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-13_20260313_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-12 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-13_20260313_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-13 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-14_20260314_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-13 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-14_20260314_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-14 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-15_20260315_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-14 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-15_20260315_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-15 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-16_20260316_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-15 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-16_20260316_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-16 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-17_20260317_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-16 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-17_20260317_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-17 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-18_20260318_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-17 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-18_20260318_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-18 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-19_20260319_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-18 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-19_20260319_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-19 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-20_20260320_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-19 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-20_20260320_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-20 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-21_20260321_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-20 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-21_20260321_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-21 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-22_20260322_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-21 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-22_20260322_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-22 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-23_20260323_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-22 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-23_20260323_161557.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-23 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-24_20260324_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-23 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-24_20260324_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-24 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-25_20260325_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-24 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-25_20260325_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-25 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-26_20260326_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-25 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-26_20260326_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-26 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-27_20260327_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-26 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-30_20260330_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-29 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-30_20260330_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-30 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-03-31_20260331_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-30 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-03-31_20260331_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-03-31 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-01_20260401_041537.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-03-31 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-04-01_20260401_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-01 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-02_20260402_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-04-01 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-04-02_20260402_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-02 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-03_20260403_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-04-02 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-04-03_20260403_161557.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-03 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-04_20260404_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-04-03 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-04-04_20260404_161555.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-04 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-05_20260405_041533.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-04-04 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-04-05_20260405_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-05 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-06_20260406_041532.csv",
+        "status": "loaded",
+        "issue_cycle": "12Z",
+        "issue_time_local": "2026-04-05 20:00:00",
+        "reason": "mapped_to_12z",
+        "used_tolerance": false,
+        "rows": 165
+      },
+      {
+        "file": "HZ_forecast_2026-04-06_20260406_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-06 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-08_20260408_161557.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-08 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-09_20260409_161556.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-09 08:00:00",
+        "reason": "mapped_to_00z",
+        "used_tolerance": false,
+        "rows": 160
+      },
+      {
+        "file": "HZ_forecast_2026-04-10_20260410_180456.csv",
+        "status": "loaded",
+        "issue_cycle": "00Z",
+        "issue_time_local": "2026-04-10 08:00:00",
+        "reason": "mapped_to_00z_with_tolerance",
+        "used_tolerance": true,
+        "rows": 160
+      }
+    ],
+    "aligned_target_range": {
+      "start": "2026-02-15 08:00:00",
+      "end": "2026-04-16 23:00:00"
+    },
+    "issue_time_range": {
+      "start": "2026-02-15 08:00:00",
+      "end": "2026-04-10 08:00:00"
+    },
+    "rows": 15760
+  },
+  "observation": {
+    "source_name": "Meteostat 58457",
+    "source_type": "meteostat_fallback",
+    "station_id": "58457",
+    "station_name": "杭州国家站 / 馒头山",
+    "latitude": 30.2444,
+    "longitude": 120.1528,
+    "timezone": "Asia/Shanghai",
+    "fallback_note": "Using Meteostat 58457 as the current best available hourly truth source.",
+    "cache_path": "data\\hangzhou_observed_20260215_20260416.csv",
+    "time_range": {
+      "start": "2026-02-15 00:00:00",
+      "end": "2026-04-16 23:00:00"
+    },
+    "rows": 1464,
+    "non_null_ratio": {
+      "obs_temp": 0.9890710382513661,
+      "obs_rhum": 0.9890710382513661,
+      "obs_prcp": 0.9890710382513661,
+      "obs_wspd": 0.9890710382513661,
+      "obs_pres": 0.9890710382513661,
+      "obs_wdir": 0.9890710382513661,
+      "obs_cldc": 0.9890710382513661,
+      "obs_coco": 0.9890710382513661
+    },
+    "missing_hours": 16
+  },
+  "alignment": {
+    "rows": 15760,
+    "issue_time_range": {
+      "start": "2026-02-15 08:00:00",
+      "end": "2026-04-10 08:00:00"
+    },
+    "target_time_range": {
+      "start": "2026-02-15 08:00:00",
+      "end": "2026-04-16 23:00:00"
+    },
+    "duplicate_issue_target_pairs": 0
+  },
+  "splits": {
+    "folds": [
+      {
+        "name": "fold1",
+        "train_start": "2026-02-15",
+        "train_end": "2026-03-13",
+        "eval_start": "2026-03-14",
+        "eval_end": "2026-03-20"
+      },
+      {
+        "name": "fold2",
+        "train_start": "2026-02-15",
+        "train_end": "2026-03-20",
+        "eval_start": "2026-03-21",
+        "eval_end": "2026-03-27"
+      },
+      {
+        "name": "fold3",
+        "train_start": "2026-02-15",
+        "train_end": "2026-03-27",
+        "eval_start": "2026-03-28",
+        "eval_end": "2026-04-03"
+      }
+    ],
+    "final_test": {
+      "start": "2026-04-04",
+      "end": "2026-04-10"
+    },
+    "production_train_end": "2026-04-10"
+  },
+  "feature_columns": [
+    "forecast_temp",
+    "forecast_rhum",
+    "forecast_wspd",
+    "forecast_pres",
+    "hour",
+    "month",
+    "day_of_week",
+    "is_day",
+    "is_weekend",
+    "lead_hours",
+    "lead_category",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "max_lead_hours": 168
+}

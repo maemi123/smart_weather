@@ -93,8 +93,16 @@ class MLCorrector:
         else:
             raise ValueError("数据中缺少时间字段 (datetime 或 time)")
         
+        if issue_time is not None and isinstance(issue_time, str):
+            issue_time = pd.to_datetime(issue_time).to_pydatetime()
+
         if issue_time is None:
-            issue_time = df['target_time'].min()
+            embedded_issue_time = None
+            for candidate in ('issue_time', 'issue_time_estimated'):
+                if candidate in df.columns and df[candidate].notna().any():
+                    embedded_issue_time = pd.to_datetime(df[candidate].dropna().iloc[0]).to_pydatetime()
+                    break
+            issue_time = embedded_issue_time or df['target_time'].min().to_pydatetime()
         
         df['hour'] = df['target_time'].dt.hour
         df['month'] = df['target_time'].dt.month

@@ -130,6 +130,47 @@
         background: var(--history-theme);
         color: white;
     }
+
+    .theme-history .event-mode-switch .btn {
+        border-color: rgba(255, 143, 0, 0.35);
+    }
+
+    .theme-history .event-mode-switch .btn.active {
+        background: var(--history-theme);
+        color: #fff;
+        border-color: var(--history-theme);
+    }
+
+    .theme-history .ew-note {
+        color: var(--text-secondary);
+        font-size: 0.92rem;
+    }
+
+    .theme-history .event-subtext {
+        display: block;
+        margin-top: 4px;
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+        line-height: 1.45;
+    }
+
+    .theme-history .season-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+    }
+
+    .theme-history .season-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--card-radius);
+        padding: 16px;
+        background: rgba(255, 143, 0, 0.04);
+    }
+
+    .theme-history .season-card h6 {
+        margin-bottom: 12px;
+        font-weight: 700;
+    }
 </style>
 </head>
 <body class="theme-history">
@@ -338,45 +379,111 @@
         <!-- 极端事件表格 -->
         <div class="col-md-7">
             <div class="chart-container h-100">
-                <h4 class="chart-title"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>{{ year }}年 Top 5 极端天气事件</h4>
-                <div class="table-responsive">
-                    <table class="table table-custom">
-                        <thead>
-                            <tr>
-                                <th>排名</th>
-                                <th>事件类型</th>
-                                <th>发生时间</th>
-                                <th>关键指标</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for event in extremes[:5] %}
-                            <tr>
-                                <td>{{ event.rank }}</td>
-                                <td>
-                                    {% if '高温' in event.type %}
-                                        <span class="event-badge badge-heat">{{ event.type }}</span>
-                                    {% elif '低温' in event.type %}
-                                        <span class="event-badge badge-cold">{{ event.type }}</span>
-                                    {% elif '雨' in event.type %}
-                                        <span class="event-badge badge-rain">{{ event.type }}</span>
-                                    {% elif '风' in event.type %}
-                                        <span class="event-badge badge-wind">{{ event.type }}</span>
-                                    {% else %}
-                                        <span class="event-badge bg-secondary text-white">{{ event.type }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ event.date }}</td>
-                                <td class="fw-bold">{{ event.value }}</td>
-                            </tr>
-                            {% endfor %}
-                            {% if not extremes %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted">本年度无显著极端事件记录</td>
-                            </tr>
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                    <h4 class="chart-title mb-0"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>{{ year }}年极端天气事件</h4>
+                    <div class="btn-group btn-group-sm event-mode-switch" role="group" aria-label="极端事件排序模式">
+                        <button type="button" class="btn btn-outline-warning active" data-event-mode="raw" onclick="switchExtremeMode('raw')">原始极值</button>
+                        <button type="button" class="btn btn-outline-warning" data-event-mode="ew" onclick="switchExtremeMode('ew')">EW 指数</button>
+                    </div>
+                </div>
+
+                <div id="extremeTableRaw" class="event-mode-panel">
+                    <div class="table-responsive">
+                        <table class="table table-custom">
+                            <thead>
+                                <tr>
+                                    <th>排名</th>
+                                    <th>事件类型</th>
+                                    <th>发生时间</th>
+                                    <th>关键指标</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in extremes_raw[:5] %}
+                                <tr>
+                                    <td>{{ event.rank }}</td>
+                                    <td>
+                                        {% if '高温' in event.type %}
+                                            <span class="event-badge badge-heat">{{ event.type }}</span>
+                                        {% elif '低温' in event.type %}
+                                            <span class="event-badge badge-cold">{{ event.type }}</span>
+                                        {% elif '雨' in event.type %}
+                                            <span class="event-badge badge-rain">{{ event.type }}</span>
+                                        {% elif '风' in event.type %}
+                                            <span class="event-badge badge-wind">{{ event.type }}</span>
+                                        {% else %}
+                                            <span class="event-badge bg-secondary text-white">{{ event.type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ event.date }}</td>
+                                    <td class="fw-bold">{{ event.value }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% if not extremes_raw %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">本年度无显著极端事件记录</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="extremeTableEw" class="event-mode-panel" style="display: none;">
+                    <div class="ew-note mb-3">
+                        EW 指数先比较历史同月同日极端程度，再叠加同季绝对门槛，并对连续过程做去重。每季每要素最多保留 1 个代表过程。
+                    </div>
+                    <div class="season-grid">
+                        {% for season in ['春季', '夏季', '秋季', '冬季'] %}
+                        {% set season_events = extremes_ew_by_season.get(season, []) %}
+                        <div class="season-card">
+                            <h6>{{ season }}代表事件</h6>
+                            {% if season_events %}
+                            <div class="table-responsive">
+                                <table class="table table-custom mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>事件</th>
+                                            <th>过程</th>
+                                            <th>指标</th>
+                                            <th>EW</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for event in season_events %}
+                                        <tr>
+                                            <td>
+                                                {% if '高温' in event.type %}
+                                                    <span class="event-badge badge-heat">{{ event.type }}</span>
+                                                {% elif '低温' in event.type %}
+                                                    <span class="event-badge badge-cold">{{ event.type }}</span>
+                                                {% elif '雨' in event.type %}
+                                                    <span class="event-badge badge-rain">{{ event.type }}</span>
+                                                {% else %}
+                                                    <span class="event-badge bg-secondary text-white">{{ event.type }}</span>
+                                                {% endif %}
+                                                <span class="event-subtext">代表日：{{ event.peak_date }}</span>
+                                            </td>
+                                            <td>
+                                                {{ event.start_date }}{% if event.start_date != event.end_date %} - {{ event.end_date }}{% endif %}
+                                                <span class="event-subtext">持续 {{ event.duration_days }} 天</span>
+                                            </td>
+                                            <td class="fw-bold">
+                                                {{ event.primary_metric }} {{ event.value }}
+                                                <span class="event-subtext">同季门槛：{{ event.season_gate }}</span>
+                                            </td>
+                                            <td class="fw-bold text-danger">{{ '%.1f'|format(event.ew_score * 100) }}%</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-muted small">该季暂无通过同日极端度、同季门槛与过程去重筛选的代表事件。</div>
                             {% endif %}
-                        </tbody>
-                    </table>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -428,6 +535,19 @@
 <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    function switchExtremeMode(mode) {
+        const rawPanel = document.getElementById('extremeTableRaw');
+        const ewPanel = document.getElementById('extremeTableEw');
+        const buttons = document.querySelectorAll('[data-event-mode]');
+
+        rawPanel.style.display = mode === 'raw' ? 'block' : 'none';
+        ewPanel.style.display = mode === 'ew' ? 'block' : 'none';
+
+        buttons.forEach((button) => {
+            button.classList.toggle('active', button.dataset.eventMode === mode);
+        });
+    }
+
     function updateDashboard() {
         const year = document.getElementById('yearSelector').value;
         const climate = document.getElementById('climateSelector').value;

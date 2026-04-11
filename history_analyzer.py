@@ -80,7 +80,11 @@ class HistoryAnalyzer:
         dates = pd.date_range(start='2015-01-01', end='2024-12-31', freq='D')
 
         mock_data = {
-            'date': dates,
+            'datetime': dates,
+            'date': dates.date,
+            'year': dates.year,
+            'month': dates.month,
+            'day': dates.day,
             'temperature': np.random.normal(17, 8, len(dates)),  # 温度
             'precipitation_corrected': np.random.exponential(3, len(dates)),  # 降水量
             'snow_depth': np.zeros(len(dates)),  # 积雪深度
@@ -230,7 +234,13 @@ class HistoryAnalyzer:
 
                     return float(g['precip_raw'].sum())
 
-                daily_precip = temp_precip.groupby('date').apply(calculate_daily_precip, include_groups=False).reset_index()
+                try:
+                    daily_precip = temp_precip.groupby('date').apply(
+                        calculate_daily_precip,
+                        include_groups=False
+                    ).reset_index()
+                except TypeError:
+                    daily_precip = temp_precip.groupby('date').apply(calculate_daily_precip).reset_index()
                 daily_precip.columns = ['date', 'precipitation_corrected']
 
                 # 6.4 合并回原数据 (注意去重)
@@ -294,7 +304,8 @@ class HistoryAnalyzer:
         comparison = self._compare_with_climatology(yearly_stats)
 
         # 分析极端事件
-        extremes = self._identify_extremes(year_data, year)
+        extremes_raw = self._identify_extremes(year_data, year)
+        extremes_ew_by_season, extremes_ew_summary = self._identify_ew_extremes(year_data, year)
 
         # 月度数据
         monthly_data = self._calculate_monthly_stats(year_data)
@@ -306,7 +317,11 @@ class HistoryAnalyzer:
             "year": year,
             "stats": yearly_stats,
             "comparison": comparison,
-            "extremes": extremes,
+            "extremes": extremes_raw,
+            "extremes_raw": extremes_raw,
+            "extremes_ew": extremes_ew_summary,
+            "extremes_ew_by_season": extremes_ew_by_season,
+            "extremes_ew_summary": extremes_ew_summary,
             "monthly_data": monthly_data,
             "comfort": comfort_stats
         }
@@ -510,6 +525,227 @@ class HistoryAnalyzer:
             "hot_days": "hot_days",
         }
         return mapping.get(key, key)
+
+    def _build_daily_event_metrics(self, data):
+        """Build daily metrics used by yearly extreme-event rankings."""
+        if data.empty:
+            return pd.DataFrame(columns=[
+                'date', 'year', 'month', 'day', 'season', 'temp_max', 'temp_min',
+                'precipitation', 'wind_gust_max'
+            ])
+
+        grouped = data.groupby('date')
+        daily = pd.DataFrame(index=grouped.size().index)
+        daily.index.name = 'date'
+        daily['year'] = grouped['year'].first() if 'year' in data.columns else pd.to_datetime(daily.index).year
+        daily['month'] = grouped['month'].first() if 'month' in data.columns else pd.to_datetime(daily.index).month
+        daily['day'] = grouped['day'].first() if 'day' in data.columns else pd.to_datetime(daily.index).day
+        daily['season'] = daily['month'].apply(self._month_to_season)
+
+        daily['temp_max'] = grouped['temp_max_24h'].max() if 'temp_max_24h' in data.columns else np.nan
+        if 'temperature' in data.columns:
+            daily['temp_max'] = daily['temp_max'].fillna(grouped['temperature'].max())
+
+        daily['temp_min'] = grouped['temp_min_24h'].min() if 'temp_min_24h' in data.columns else np.nan
+        if 'temperature' in data.columns:
+            daily['temp_min'] = daily['temp_min'].fillna(grouped['temperature'].min())
+
+        daily['precipitation'] = grouped['precipitation_corrected'].mean() if 'precipitation_corrected' in data.columns else np.nan
+
+        daily['wind_gust_max'] = grouped['wind_gust'].max() if 'wind_gust' in data.columns else np.nan
+        if 'wind_speed' in data.columns:
+            daily['wind_gust_max'] = daily['wind_gust_max'].fillna(grouped['wind_speed'].max())
+
+        return daily.reset_index()
+
+    def _compute_empirical_percentile(self, value, history_values):
+        """Calculate an empirical percentile for a value within a sample."""
+        valid_values = pd.Series(history_values).dropna()
+        if valid_values.empty:
+            return None, 0
+
+        sample_size = int(len(valid_values))
+        lower_count = int((valid_values < value).sum())
+        equal_count = int((valid_values == value).sum())
+        percentile = (lower_count + 0.5 * equal_count) / sample_size
+        return float(percentile), sample_size
+
+    def _month_to_season(self, month):
+        mapping = {
+            12: "冬季", 1: "冬季", 2: "冬季",
+            3: "春季", 4: "春季", 5: "春季",
+            6: "夏季", 7: "夏季", 8: "夏季",
+            9: "秋季", 10: "秋季", 11: "秋季",
+        }
+        return mapping.get(int(month), "未知")
+
+    def _build_ew_candidate_definitions(self):
+        return [
+            {
+                "metric_key": "temp_max",
+                "type": "极端高温",
+                "primary_metric": "日最高温",
+                "unit": "°C",
+                "higher_is_more_extreme": True,
+                "season_quantile": 0.85,
+            },
+            {
+                "metric_key": "temp_min",
+                "type": "极端低温",
+                "primary_metric": "日最低温",
+                "unit": "°C",
+                "higher_is_more_extreme": False,
+                "season_quantile": 0.15,
+            },
+            {
+                "metric_key": "precipitation",
+                "type": "强降水事件",
+                "primary_metric": "日降水量",
+                "unit": "mm",
+                "higher_is_more_extreme": True,
+                "season_quantile": 0.85,
+            },
+        ]
+
+    def _passes_season_gate(self, value, season_values, definition):
+        valid_values = pd.Series(season_values).dropna()
+        if valid_values.empty:
+            return False, None
+
+        gate_value = float(valid_values.quantile(definition['season_quantile']))
+        if definition['higher_is_more_extreme']:
+            passed = float(value) >= gate_value
+        else:
+            passed = float(value) <= gate_value
+
+        return passed, round(gate_value, 1)
+
+    def _build_ew_processes(self, candidates, max_gap_days=2):
+        processes = []
+        if not candidates:
+            return processes
+
+        candidates = sorted(candidates, key=lambda item: item['date_obj'])
+        current_group = [candidates[0]]
+
+        for candidate in candidates[1:]:
+            previous = current_group[-1]
+            if (candidate['date_obj'] - previous['date_obj']).days <= max_gap_days:
+                current_group.append(candidate)
+            else:
+                processes.append(self._summarize_ew_process(current_group))
+                current_group = [candidate]
+
+        processes.append(self._summarize_ew_process(current_group))
+        return processes
+
+    def _summarize_ew_process(self, candidates):
+        peak = max(candidates, key=lambda item: item['ew_score'])
+        ordered_dates = [item['date_obj'] for item in candidates]
+        start_date = ordered_dates[0]
+        end_date = ordered_dates[-1]
+        duration_days = int((end_date - start_date).days + 1)
+
+        if duration_days > 1:
+            description = (
+                f"{peak['season']}{peak['type']}过程，持续{duration_days}天，"
+                f"代表日为{peak['peak_date']}，{peak['primary_metric']}{peak['value']}。"
+            )
+        else:
+            description = (
+                f"{peak['peak_date']}出现{peak['type']}，"
+                f"{peak['primary_metric']}{peak['value']}，EW指数{peak['ew_score']:.3f}。"
+            )
+
+        return {
+            "season": peak['season'],
+            "type": peak['type'],
+            "primary_metric": peak['primary_metric'],
+            "peak_date": peak['peak_date'],
+            "start_date": start_date.strftime('%Y-%m-%d'),
+            "end_date": end_date.strftime('%Y-%m-%d'),
+            "duration_days": duration_days,
+            "value": peak['value'],
+            "ew_score": float(round(peak['ew_score'], 4)),
+            "season_gate": peak['season_gate'],
+            "sample_size": peak['sample_size'],
+            "description": description,
+        }
+
+    def _identify_ew_extremes(self, data, year, min_sample_size=5, ew_threshold=0.90):
+        """Identify seasonal EW representative events."""
+        if self.data is None:
+            self.load_data()
+
+        daily_year = self._build_daily_event_metrics(data)
+        full_daily = self._build_daily_event_metrics(self.data)
+        definitions = self._build_ew_candidate_definitions()
+        candidates_by_bucket = {}
+
+        for _, row in daily_year.iterrows():
+            for definition in definitions:
+                value = row.get(definition['metric_key'])
+                if pd.isna(value):
+                    continue
+
+                history_values = full_daily.loc[
+                    (full_daily['month'] == row['month']) &
+                    (full_daily['day'] == row['day']),
+                    definition['metric_key']
+                ]
+                percentile, sample_size = self._compute_empirical_percentile(value, history_values)
+                if percentile is None or sample_size < min_sample_size:
+                    continue
+
+                ew_score = percentile if definition['higher_is_more_extreme'] else (1 - percentile)
+                if ew_score < ew_threshold:
+                    continue
+
+                season_values = full_daily.loc[
+                    full_daily['season'] == row['season'],
+                    definition['metric_key']
+                ]
+                passes_gate, season_gate = self._passes_season_gate(value, season_values, definition)
+                if not passes_gate:
+                    continue
+
+                date_str = row['date'].strftime('%Y-%m-%d')
+                formatted_value = f"{float(value):.1f}{definition['unit']}"
+                bucket = (row['season'], definition['metric_key'])
+                candidates_by_bucket.setdefault(bucket, []).append({
+                    "season": row['season'],
+                    "date_obj": row['date'],
+                    "peak_date": date_str,
+                    "type": definition['type'],
+                    "value": formatted_value,
+                    "ew_score": float(round(ew_score, 4)),
+                    "primary_metric": definition['primary_metric'],
+                    "sample_size": sample_size,
+                    "season_gate": season_gate,
+                })
+
+        season_order = ["春季", "夏季", "秋季", "冬季"]
+        season_groups = {season: [] for season in season_order}
+
+        for (season, _metric_key), season_candidates in candidates_by_bucket.items():
+            processes = self._build_ew_processes(season_candidates)
+            if not processes:
+                continue
+            best_process = max(processes, key=lambda item: item['ew_score'])
+            season_groups[season].append(best_process)
+
+        flattened_events = []
+        for season in season_order:
+            season_events = sorted(season_groups.get(season, []), key=lambda item: item['ew_score'], reverse=True)[:3]
+            for rank, event in enumerate(season_events, start=1):
+                event['season_rank'] = rank
+            season_groups[season] = season_events
+            flattened_events.extend(season_events)
+
+        for rank, event in enumerate(sorted(flattened_events, key=lambda item: item['ew_score'], reverse=True), start=1):
+            event['rank'] = rank
+
+        return season_groups, flattened_events
 
     def _identify_extremes(self, data, year):
         """识别极端天气事件"""

@@ -17,7 +17,7 @@ class SoundingPlotter:
         plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'Segoe UI Emoji', 'SimHei', 'Arial']
         plt.rcParams['axes.unicode_minus'] = False
 
-    def plot(self, plot_type: str, data: pd.DataFrame, station_info: dict, cape: float = 0) -> str:
+    def plot(self, plot_type: str, data: pd.DataFrame, station_info: dict, cape=None) -> str:
         """生成指定类型的图表"""
         if plot_type == "t_lnp":
             return self._plot_skewt(data, station_info, plot_type="t_lnp")
@@ -122,7 +122,7 @@ class SoundingPlotter:
         
         return self._save_fig(fig, f"wind_profile_{station_info.get('time_utc', '').replace(' ', '_')}")
 
-    def _plot_simple(self, data: pd.DataFrame, station_info: dict, cape: float = 0) -> str:
+    def _plot_simple(self, data: pd.DataFrame, station_info: dict, cape=None) -> str:
         """绘制卡通直观图 (Atmospheric Health Report)"""
         fig = plt.figure(figsize=(10, 12))
         ax = fig.add_subplot(111)
@@ -305,7 +305,8 @@ class SoundingPlotter:
         
         # 风险提示（三级）
         is_mid_dry = (mid_depression > 12) or (mid_rh < 35)
-        if is_mid_dry and cape > 1500:
+        cape_value = cape if isinstance(cape, (int, float)) else 0
+        if is_mid_dry and cape_value > 1500:
             risk_icon = "⚡"
             risk_text = "对流能量充足且温露差大，雷暴大风风险增高"
         elif is_mid_dry:

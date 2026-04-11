@@ -210,6 +210,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const time = data.metadata.time_utc || '未知时间';
             const station = data.metadata.station_id || '58457';
             document.getElementById('stationInfo').textContent = `杭州 (${station}) ${time}`;
+            const requestedLocal = data.metadata.requested_time_local || '最新可用时次';
+            const resolvedUtc = data.metadata.resolved_time_utc || '未知 UTC 时次';
+            const fallbackText = data.metadata.fallback_used ? '，已自动回退到上一标准时次。' : '';
+            document.getElementById('resolvedTimeInfo').textContent =
+                `按北京时间请求：${requestedLocal}；实际分析时次：${resolvedUtc}${fallbackText}`;
         }
 
         // 更新指数列表
@@ -285,11 +290,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 辅助函数：更新徽章
     function updateBadge(id, value, warnThresh, dangerThresh, reverse=false) {
         const el = document.getElementById(id);
-        el.textContent = value !== null ? value : 'N/A';
+        const isMissing = value === null || value === undefined || value === 'N/A';
+        el.textContent = isMissing ? 'N/A' : value;
         
         el.className = 'badge rounded-pill';
         
-        if (value === null || value === 'N/A') {
+        if (isMissing) {
             el.classList.add('bg-secondary');
             return;
         }
@@ -325,8 +331,19 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateProgressBar(id, value, max, unit) {
         const bar = document.getElementById(id);
         const text = document.getElementById(id.replace('Bar', 'Text'));
-        
-        const val = parseFloat(value) || 0;
+
+        if (value === null || value === undefined || value === 'N/A') {
+            bar.style.width = '0%';
+            text.textContent = 'N/A';
+            return;
+        }
+
+        const val = parseFloat(value);
+        if (Number.isNaN(val)) {
+            bar.style.width = '0%';
+            text.textContent = 'N/A';
+            return;
+        }
         const percent = Math.min(100, Math.max(0, (val / max) * 100));
         
         bar.style.width = `${percent}%`;

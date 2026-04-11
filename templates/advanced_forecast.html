@@ -421,6 +421,9 @@
                         .switch input:checked + .slider:before { transform: translateX(24px); }
                     </style>
                 </div>
+                <div style="margin: -4px 0 10px; color: #5f6b7a; font-size: 12px;">
+                    基于 ECMWF 历史样本训练。后台会按 ECMWF 标准时次估算起报时间；若模型未加载或时次无法判定，将自动回退原始预报。
+                </div>
                 
                 <div id="ml_status" style="display: none; margin-bottom: 10px; padding: 8px 12px; background: #e8f5e9; border-radius: 6px; font-size: 13px; color: #2e7d32;">
                     <span id="ml_status_text">✅ ML校正已启用</span>
@@ -604,7 +607,8 @@
                                         'Content-Type': 'application/json'
                                     },
                                     body: JSON.stringify({
-                                        data: forecastData
+                                        data: forecastData,
+                                        issue_time: data.issue_time_estimated || null
                                     })
                                 });
                                 
@@ -1206,8 +1210,9 @@
                                 
                                 const forecastData = [];
                                 const buildLen = Math.min(timestamps.length, temps.length, rhums.length, wspds.length);
+                                const issueTime = baseData.issue_time_estimated || null;
                                 const cached = window.mlCorrectedMultiData;
-                                if (cached && cached.baseModelKey === baseModelKey && cached.buildLen === buildLen) {
+                                if (cached && cached.baseModelKey === baseModelKey && cached.buildLen === buildLen && cached.issueTime === issueTime) {
                                     mlCorrectedData = cached.correctedData;
                                 } else {
                                     for (let i = 0; i < buildLen; i++) {
@@ -1224,13 +1229,16 @@
                                     const response = await fetch('/apply-ml-correction', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ data: forecastData })
+                                        body: JSON.stringify({
+                                            data: forecastData,
+                                            issue_time: baseData.issue_time_estimated || null
+                                        })
                                     });
                                     
                                     const result = await response.json();
                                     if (result.success && result.models_loaded) {
                                         mlCorrectedData = result.corrected_data;
-                                        window.mlCorrectedMultiData = { baseModelKey, buildLen, correctedData: mlCorrectedData };
+                                        window.mlCorrectedMultiData = { baseModelKey, buildLen, issueTime, correctedData: mlCorrectedData };
                                         if (shouldDebug) {
                                             console.log('[updateModelComparison] corrected_data sample:', mlCorrectedData?.slice?.(0, 2));
                                         }

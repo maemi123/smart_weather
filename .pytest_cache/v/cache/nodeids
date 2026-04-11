@@ -1,0 +1,8 @@
+[
+  "test_forecast_issue_time.py::test_infer_issue_time_from_morning_collection",
+  "test_forecast_issue_time.py::test_infer_issue_time_from_evening_collection",
+  "test_forecast_issue_time.py::test_infer_issue_time_uses_tolerance_for_1804",
+  "test_forecast_issue_time.py::test_infer_issue_time_rejects_1107_collection",
+  "test_forecast_issue_time.py::test_estimate_runtime_issue_time_during_daytime_uses_previous_12z",
+  "test_forecast_issue_time.py::test_estimate_runtime_issue_time_in_evening_uses_same_day_00z"
+]

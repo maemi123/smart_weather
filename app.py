@@ -23,7 +23,7 @@ from typing import Dict, List
 
 from history_analyzer import analyzer
 from ml_correction import apply_ml_correction, get_corrector
-from datetime import datetime
+from datetime import datetime, timezone
 
 # 初始化服务
 forecast_service = AdvancedForecastService()
@@ -1104,8 +1104,9 @@ def apply_ml_correction_route():
         "message": 状态信息
     }
     """
+    req_data = {}
     try:
-        req_data = request.get_json()
+        req_data = request.get_json() or {}
         
         if not req_data or 'data' not in req_data:
             return jsonify({
@@ -1132,7 +1133,8 @@ def apply_ml_correction_route():
             'success': True,
             'corrected_data': corrected_data,
             'message': '校正完成' if models_loaded else '模型未加载，返回原始数据',
-            'models_loaded': models_loaded
+            'models_loaded': models_loaded,
+            'issue_time_used': issue_time.isoformat(sep=' ') if issue_time else req_data.get('issue_time')
         })
         
     except Exception as e:
@@ -1473,6 +1475,10 @@ def history_yearly(year):
                                stats=result['stats'],
                                comparison=result['comparison'],
                                extremes=result['extremes'],
+                               extremes_raw=result.get('extremes_raw', result['extremes']),
+                               extremes_ew=result.get('extremes_ew', []),
+                               extremes_ew_by_season=result.get('extremes_ew_by_season', {}),
+                               extremes_ew_summary=result.get('extremes_ew_summary', result.get('extremes_ew', [])),
                                comfort=comfort_data,
                                charts=charts,
                                ai_report=ai_report)
@@ -1526,115 +1532,134 @@ sounding_parser = SoundingDataParser()
 sounding_plotter = SoundingPlotter()
 sounding_analyzer = SoundingAnalyzer()
 
+UPPERAIR_LOCAL_TZ = timezone(timedelta(hours=8), name="CST")
+UTC_TZ = timezone.utc
+
+
+def _snap_upperair_cycle(utc_dt):
+    if utc_dt.hour < 6:
+        return utc_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    if utc_dt.hour < 18:
+        return utc_dt.replace(hour=12, minute=0, second=0, microsecond=0)
+    return (utc_dt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _parse_upperair_request_time(date_str):
+    if not date_str:
+        return {
+            "requested_time_local": None,
+            "requested_time_utc": None,
+            "target_time_utc": None,
+        }
+
+    raw_local = datetime.strptime(date_str, "%Y-%m-%d %H:%M").replace(tzinfo=UPPERAIR_LOCAL_TZ)
+    requested_utc = raw_local.astimezone(UTC_TZ)
+    target_time_utc = _snap_upperair_cycle(requested_utc)
+    return {
+        "requested_time_local": raw_local,
+        "requested_time_utc": requested_utc,
+        "target_time_utc": target_time_utc,
+    }
+
+
+def _build_upperair_metadata(parsed_data, request_meta, fetch_result):
+    metadata = dict(parsed_data.get('header', {}))
+    metadata.update({
+        "requested_time_local": (
+            request_meta["requested_time_local"].strftime("%Y-%m-%d %H:%M %Z")
+            if request_meta.get("requested_time_local") else "最新可用时次"
+        ),
+        "requested_time_utc": (
+            request_meta["requested_time_utc"].strftime("%Y-%m-%d %H:%M UTC")
+            if request_meta.get("requested_time_utc") else None
+        ),
+        "resolved_time_utc": fetch_result.get("resolved_time_utc"),
+        "fallback_used": bool(fetch_result.get("fallback_used")),
+    })
+    return metadata
+
 @app.route('/upperair')
 def upperair_home():
     """探空数据分析主页"""
     return render_template('upperair.html', 
-                         now=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+                         now=datetime.now(UPPERAIR_LOCAL_TZ).strftime("%Y-%m-%d %H:%M CST"))
 
 @app.route('/upperair/data')
 def get_upperair_data():
     """获取探空数据API"""
-    date_str = request.args.get('date') # 格式: YYYY-MM-DD HH:MM
-    station_id = request.args.get('station', '58457') # 默认杭州
-    
-    target_time = None
-    if date_str:
-        try:
-            raw_time = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
-            # 将时间规整到最近的 00Z 或 12Z
-            # 逻辑：如果小时 < 6，归为 00Z；如果在 6-18 之间，归为 12Z；如果 > 18，归为次日 00Z
-            if raw_time.hour < 6:
-                target_time = raw_time.replace(hour=0, minute=0, second=0, microsecond=0)
-            elif raw_time.hour < 18:
-                target_time = raw_time.replace(hour=12, minute=0, second=0, microsecond=0)
-            else:
-                target_time = (raw_time + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-                
-            print(f"🕒 请求时间: {date_str} -> 调整为标准探空时次: {target_time.strftime('%Y-%m-%d %H:%M')}")
-        except ValueError:
-            pass
-            
-    # 获取数据
-    result = sounding_parser.fetch_sounding_data(station_id, target_time)
-    
-    if result['success']:
-        # 解析数据
-        parsed_data = sounding_parser.parse_sounding_data(result['raw_data'])
-        
-        # 保存数据
-        sounding_parser.save_to_csv(parsed_data, f"sounding_{station_id}_{parsed_data['header'].get('time_utc', 'unknown').replace(' ', '_')}.csv")
-        
-        # 分析数据
-        analysis = sounding_analyzer.analyze(
-            pd.DataFrame(parsed_data['levels']), 
-            parsed_data['indices']
-        )
-        
-        # 添加元数据
-        analysis['metadata'] = parsed_data['header']
-        
-        # 添加完整层级数据（用于前端展示原始数据）
-        analysis['raw_levels'] = parsed_data['levels']
-        
-        return jsonify({
-            "success": True,
-            "data": analysis
-        })
-    else:
+    date_str = request.args.get('date')
+    station_id = request.args.get('station', '58457')
+
+    try:
+        request_meta = _parse_upperair_request_time(date_str)
+    except ValueError:
+        return jsonify({"success": False, "error": "时间格式错误，应为 YYYY-MM-DD HH:MM"}), 400
+
+    result = sounding_parser.fetch_sounding_data(station_id, request_meta.get("target_time_utc"))
+    if not result['success']:
         return jsonify({
             "success": False,
             "error": result.get('error', 'Unknown error')
         })
+
+    parsed_data = sounding_parser.parse_sounding_data(result['raw_data'])
+    if not parsed_data.get('levels'):
+        return jsonify({"success": False, "error": "探空资料为空或解析失败"})
+
+    sounding_parser.save_to_csv(
+        parsed_data,
+        f"sounding_{station_id}_{parsed_data['header'].get('time_utc', 'unknown').replace(' ', '_')}.csv"
+    )
+
+    analysis = sounding_analyzer.analyze(
+        pd.DataFrame(parsed_data['levels']),
+        parsed_data['indices']
+    )
+    analysis['metadata'] = _build_upperair_metadata(parsed_data, request_meta, result)
+    analysis['raw_levels'] = parsed_data['levels']
+
+    return jsonify({
+        "success": True,
+        "data": analysis
+    })
 
 @app.route('/upperair/plot/<plot_type>')
 def get_upperair_plot(plot_type):
     """获取探空图表API"""
     date_str = request.args.get('date')
     station_id = request.args.get('station', '58457')
-    
-    target_time = None
-    if date_str:
-        try:
-            raw_time = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
-            # 同样应用时间规整逻辑
-            if raw_time.hour < 6:
-                target_time = raw_time.replace(hour=0, minute=0, second=0, microsecond=0)
-            elif raw_time.hour < 18:
-                target_time = raw_time.replace(hour=12, minute=0, second=0, microsecond=0)
-            else:
-                target_time = (raw_time + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        except ValueError:
-            pass
-            
-    # 获取数据 (这里简化处理，实际应该缓存数据避免重复请求)
-    result = sounding_parser.fetch_sounding_data(station_id, target_time)
-    
-    if result['success']:
-        parsed_data = sounding_parser.parse_sounding_data(result['raw_data'])
-        df = pd.DataFrame(parsed_data['levels'])
-        
-        # 获取CAPE值用于中层风险判断
-        cape = 0
-        try:
-            analysis = sounding_analyzer.analyze(df, parsed_data.get('indices', {}))
-            cape = analysis.get('parameters', {}).get('cape', 0) or 0
-            if isinstance(cape, str):
-                cape = 0
-        except Exception:
-            pass
-        
-        try:
-            # 生成图表
-            plot_path = sounding_plotter.plot(plot_type, df, parsed_data['header'], cape)
-            return jsonify({
-                "success": True,
-                "url": url_for('static', filename=plot_path.replace('static/', ''))
-            })
-        except Exception as e:
-            return jsonify({"success": False, "error": str(e)})
-    else:
-        return jsonify({"success": False, "error": "Failed to fetch data"})
+
+    try:
+        request_meta = _parse_upperair_request_time(date_str)
+    except ValueError:
+        return jsonify({"success": False, "error": "时间格式错误，应为 YYYY-MM-DD HH:MM"}), 400
+
+    result = sounding_parser.fetch_sounding_data(station_id, request_meta.get("target_time_utc"))
+    if not result['success']:
+        return jsonify({"success": False, "error": result.get('error', 'Failed to fetch data')})
+
+    parsed_data = sounding_parser.parse_sounding_data(result['raw_data'])
+    df = pd.DataFrame(parsed_data['levels'])
+    if df.empty:
+        return jsonify({"success": False, "error": "探空资料为空或解析失败"})
+
+    cape = None
+    try:
+        analysis = sounding_analyzer.analyze(df, parsed_data.get('indices', {}))
+        raw_cape = analysis.get('parameters', {}).get('cape')
+        if isinstance(raw_cape, (int, float)):
+            cape = raw_cape
+    except Exception:
+        cape = None
+
+    try:
+        plot_path = sounding_plotter.plot(plot_type, df, parsed_data['header'], cape)
+        return jsonify({
+            "success": True,
+            "url": url_for('static', filename=plot_path.replace('static/', ''))
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/history/trend')
 def history_trend():

@@ -144,6 +144,9 @@
                         <div class="mt-2 d-none" id="historyDateGroup">
                             <input type="datetime-local" class="form-control form-control-sm" id="historyDate">
                         </div>
+                        <div class="form-text mt-2" id="timeHint">
+                            输入时间按北京时间解析，后台会自动换算为最近的标准 UTC 探空时次（00Z/12Z）。
+                        </div>
                     </div>
 
                     <!-- 图表类型选择 -->
@@ -244,6 +247,7 @@
                     </div>
                 </div>
                 <div class="card-footer bg-light">
+                    <div class="small text-muted mb-2" id="resolvedTimeInfo">时间信息将在加载后显示。</div>
                     <small class="text-muted" id="plotDesc">
                         T-lnP图是气象专业标准探空图，展示了大气温度、露点随高度（气压）的变化，用于分析大气层结稳定性。
                     </small>
@@ -286,7 +290,7 @@
                                             <div class="progress" style="height: 20px;">
                                                 <div class="progress-bar" role="progressbar" style="width: 0%" id="capeBar"></div>
                                             </div>
-                                            <small class="text-muted" id="capeText">0 J/kg</small>
+                                            <small class="text-muted" id="capeText">N/A</small>
                                         </div>
                                     </div>
                                 </div>

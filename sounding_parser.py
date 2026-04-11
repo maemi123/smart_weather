@@ -10,7 +10,7 @@ class SoundingDataParser:
     """怀俄明大学探空数据解析器（新版wsgi API）"""
 
     def __init__(self):
-        self.base_url = "http://weather.uwyo.edu/wsgi/sounding"
+        self.base_url = "https://weather.uwyo.edu/wsgi/sounding"
 
     def fetch_sounding_data(self,
                             station_id: str = "58457",
@@ -21,9 +21,11 @@ class SoundingDataParser:
         """
         # 如果没有指定时间，使用最近的有效时次
         is_auto_time = False
+        requested_time = target_time
         if target_time is None:
             target_time = self.get_latest_valid_time()
             is_auto_time = True
+            requested_time = target_time
 
         # 内部函数：执行单次请求
         def _do_fetch(time_val):
@@ -33,37 +35,40 @@ class SoundingDataParser:
                 "src": "BUFR",
                 "type": data_type
             }
-            print(f"📡 获取探空数据...")
-            print(f"   站点: {station_id}")
-            print(f"   时间: {time_val.strftime('%Y-%m-%d %H:%M UTC')}")
-            
+            print("Fetching sounding data...")
+            print(f"  Station: {station_id}")
+            print(f"  Time: {time_val.strftime('%Y-%m-%d %H:%M UTC')}")
+             
             try:
                 response = requests.get(self.base_url, params=params, timeout=15)
                 if response.status_code == 200:
                     content = response.text
-                    # 检查是否包含有效数据（Wyoming有时返回HTML但不包含数据）
-                    if "PRES   HGHT   TEMP" in content or "Station information" in content:
+                    has_station = "Observations for Station" in content
+                    has_table = "PRES   HGHT   TEMP" in content
+                    if has_station and has_table:
                         return {"success": True, "raw_data": content, "params": params, "time": time_val}
-                    else:
-                        return {"success": False, "error": "未找到数据", "raw_data": content}
+                    return {"success": False, "error": "未找到有效探空层结表", "raw_data": content}
                 return {"success": False, "error": f"HTTP {response.status_code}"}
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
-        # 1. 首次尝试
-        result = _do_fetch(target_time)
-        
-        # 2. 如果失败且时间是自动生成的，尝试回退12小时
-        # 场景：现在是12:30 UTC，请求12:00 UTC数据，但Wyoming还没发布
-        if not result["success"] and is_auto_time:
-            print(f"⚠️  当前时次获取失败 ({result.get('error')})，尝试回退到上一时次...")
-            fallback_time = target_time - timedelta(hours=12)
-            result = _do_fetch(fallback_time)
-            
+        candidate_times = [target_time]
+        fallback_time = target_time - timedelta(hours=12)
+        if fallback_time not in candidate_times:
+            candidate_times.append(fallback_time)
+
+        result = {"success": False, "error": "未尝试抓取"}
+        fallback_used = False
+        for idx, candidate_time in enumerate(candidate_times):
+            if idx == 1:
+                print(f"Retrying previous sounding cycle after failure: {result.get('error')}")
+            result = _do_fetch(candidate_time)
             if result["success"]:
-                print(f"✅ 回退时次获取成功: {fallback_time.strftime('%Y-%m-%d %H:%M UTC')}")
-            else:
-                print("❌ 回退时次也获取失败")
+                fallback_used = idx > 0
+                break
+
+        if not result["success"] and is_auto_time:
+            print("Unable to fetch latest or previous sounding cycle.")
 
         # 构造最终返回
         if result["success"]:
@@ -72,7 +77,10 @@ class SoundingDataParser:
                 "raw_data": result["raw_data"],
                 "params": result["params"],
                 "station_id": station_id,
-                "time": result["time"] # 返回实际获取成功的时间
+                "time": result["time"],
+                "requested_time_utc": requested_time.strftime("%Y-%m-%d %H:%M UTC") if requested_time else None,
+                "resolved_time_utc": result["time"].strftime("%Y-%m-%d %H:%M UTC"),
+                "fallback_used": fallback_used,
             }
         else:
             return result

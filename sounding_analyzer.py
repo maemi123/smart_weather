@@ -90,6 +90,23 @@ class SoundingAnalyzer:
                  
         return layers
 
+    def _prepare_profile_frame(self, data: pd.DataFrame) -> pd.DataFrame:
+        """清洗探空廓线，确保计算时压力单调、关键列有效。"""
+        required = ['PRES', 'TEMP', 'DWPT']
+        df = data.dropna(subset=required).copy()
+        if df.empty:
+            return df
+
+        for column in ['PRES', 'TEMP', 'DWPT', 'HGHT', 'DRCT', 'SPED']:
+            if column in df.columns:
+                df[column] = pd.to_numeric(df[column], errors='coerce')
+
+        df = df.dropna(subset=required)
+        df = df[df['PRES'] > 0]
+        df = df.drop_duplicates(subset=['PRES'], keep='first')
+        df = df.sort_values('PRES', ascending=False).reset_index(drop=True)
+        return df
+
     def _calculate_parameters(self, data: pd.DataFrame, indices: Dict = None) -> Dict:
         """计算关键气象参数"""
         params = indices.copy() if indices else {}
@@ -102,21 +119,24 @@ class SoundingAnalyzer:
 
         # 尝试使用MetPy补充计算缺失参数
         try:
-            if not data.empty and 'PRES' in data.columns and 'TEMP' in data.columns and 'DWPT' in data.columns:
+            profile_df = self._prepare_profile_frame(data)
+            if not profile_df.empty and 'PRES' in profile_df.columns and 'TEMP' in profile_df.columns and 'DWPT' in profile_df.columns:
                 # 准备数据单位
-                p = data['PRES'].values * units.hPa
-                T = data['TEMP'].values * units.degC
-                Td = data['DWPT'].values * units.degC
-                
+                p = profile_df['PRES'].values * units.hPa
+                T = profile_df['TEMP'].values * units.degC
+                Td = profile_df['DWPT'].values * units.degC
+                parcel_prof = None
+                 
                 # 1. 计算CAPE和CIN (如果缺失)
                 if params['CAPE'] is None or params['CIN'] is None:
                     try:
                         # 计算气块路径
                         parcel_prof = mpcalc.parcel_profile(p, T[0], Td[0]).to('degC')
                         cape, cin = mpcalc.cape_cin(p, T, Td, parcel_prof)
-                        
+                         
                         if params['CAPE'] is None:
-                            params['CAPE'] = float(cape.magnitude)
+                            cape_value = float(cape.magnitude)
+                            params['CAPE'] = cape_value if cape_value >= 0 else None
                         if params['CIN'] is None:
                             params['CIN'] = float(cin.magnitude)
                     except Exception as e:
@@ -133,6 +153,8 @@ class SoundingAnalyzer:
                 # 3. 计算抬升指数 (LI) (如果缺失)
                 if params['LIFTED_INDEX'] is None:
                     try:
+                        if parcel_prof is None:
+                            parcel_prof = mpcalc.parcel_profile(p, T[0], Td[0]).to('degC')
                         # lifted_index(pressure, temperature, parcel_profile)
                         li = mpcalc.lifted_index(p, T, parcel_prof)
                         params['LIFTED_INDEX'] = float(li[0].magnitude)
@@ -159,17 +181,23 @@ class SoundingAnalyzer:
                 if params['SHEAR_06KM'] is None:
                     try:
                         # 检查是否有风场数据
-                        if 'DRCT' in data.columns and 'SPED' in data.columns:
+                        if 'DRCT' in profile_df.columns and 'SPED' in profile_df.columns and 'HGHT' in profile_df.columns:
                             # 转换风速风向为U/V分量
-                            wind_speed = data['SPED'].values * units('m/s')
-                            wind_dir = data['DRCT'].values * units.degrees
+                            wind_speed = profile_df['SPED'].values * units('m/s')
+                            wind_dir = profile_df['DRCT'].values * units.degrees
                             u, v = mpcalc.wind_components(wind_speed, wind_dir)
-                            
+                             
                             # 计算0-6km切变
                             # bulk_shear返回: (u_shear, v_shear)
                             # depth=6000m
-                            u_shear, v_shear = mpcalc.bulk_shear(p, u, v, height=data['HGHT'].values * units.meters, depth=6000 * units.meters)
-                            
+                            u_shear, v_shear = mpcalc.bulk_shear(
+                                p,
+                                u,
+                                v,
+                                height=profile_df['HGHT'].values * units.meters,
+                                depth=6000 * units.meters
+                            )
+                             
                             # 计算切变矢量的大小 (magnitude)
                             shear_mag = np.sqrt(u_shear**2 + v_shear**2)
                             params['SHEAR_06KM'] = float(shear_mag.magnitude)
@@ -183,7 +211,9 @@ class SoundingAnalyzer:
         formatted_params = {}
         for k, v in params.items():
             key_lower = k.lower()
-            if v is not None and isinstance(v, (int, float)):
+            if key_lower == 'cape' and isinstance(v, (int, float)) and v < 0:
+                formatted_params[key_lower] = "N/A"
+            elif v is not None and isinstance(v, (int, float)):
                 formatted_params[key_lower] = round(v, 1)
             else:
                 formatted_params[key_lower] = v if v is not None else "N/A"

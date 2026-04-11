@@ -1,665 +1,837 @@
-"""
-随机森林误差校正训练脚本
-对 ECMWF（通过 Open-Meteo 获取）的预报数据进行校正
-"""
-import os
-import re
+"""Retrain Open-Meteo ECMWF bias-correction models for Hangzhou."""
+
+from __future__ import annotations
+
 import json
+import os
 import pickle
+import warnings
+from collections import Counter
+from datetime import datetime, time, timedelta
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.metrics import mean_absolute_error, mean_squared_error, accuracy_score, precision_score, recall_score, f1_score
-import warnings
-warnings.filterwarnings('ignore')
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    mean_absolute_error,
+    mean_squared_error,
+    precision_score,
+    recall_score,
+)
 
-FORECAST_DIR = 'data/openmeteo'
-OBSERVED_FILE = 'data/hangzhou_observed_20260111_20260221.csv'
-MODELS_DIR = 'models'
-TRAIN_END_DATE = '2026-02-10'
+from forecast_issue_time import infer_issue_time_from_filename
+from station_config import (
+    HANGZHOU_LAT,
+    HANGZHOU_LON,
+    HANGZHOU_OBS_FALLBACK_NAME,
+    HANGZHOU_STATION_ID,
+    HANGZHOU_STATION_NAME,
+    HANGZHOU_TIMEZONE,
+)
+
+warnings.filterwarnings("ignore")
+
+FORECAST_DIR = Path("data/hangzhou_openmeteo")
+MODELS_DIR = Path("models")
+DATA_DIR = Path("data")
 MAX_LEAD_HOURS = 168
+OBS_PRCP_THRESHOLD = 0.1
+
+TRAINING_START = pd.Timestamp("2026-02-15")
+FINAL_TEST_START = pd.Timestamp("2026-04-04")
+FINAL_TEST_END = pd.Timestamp("2026-04-10")
+PRODUCTION_TRAIN_END = FINAL_TEST_END
+
+FOLDS = [
+    {
+        "name": "fold1",
+        "train_start": "2026-02-15",
+        "train_end": "2026-03-13",
+        "eval_start": "2026-03-14",
+        "eval_end": "2026-03-20",
+    },
+    {
+        "name": "fold2",
+        "train_start": "2026-02-15",
+        "train_end": "2026-03-20",
+        "eval_start": "2026-03-21",
+        "eval_end": "2026-03-27",
+    },
+    {
+        "name": "fold3",
+        "train_start": "2026-02-15",
+        "train_end": "2026-03-27",
+        "eval_start": "2026-03-28",
+        "eval_end": "2026-04-03",
+    },
+]
 
 FEATURE_COLUMNS = [
-    'forecast_temp', 'forecast_rhum', 'forecast_wspd', 'forecast_pres',
-    'hour', 'month', 'day_of_week', 'is_day', 'is_weekend',
-    'lead_hours', 'lead_category',
-    'hour_sin', 'hour_cos'
+    "forecast_temp",
+    "forecast_rhum",
+    "forecast_wspd",
+    "forecast_pres",
+    "hour",
+    "month",
+    "day_of_week",
+    "is_day",
+    "is_weekend",
+    "lead_hours",
+    "lead_category",
+    "hour_sin",
+    "hour_cos",
 ]
 
 TARGET_COLUMNS = {
-    'temp': 'temp',
-    'rhum': 'rhum',
-    'wspd': 'wspd'
+    "temp": "obs_temp",
+    "rhum": "obs_rhum",
+    "wspd": "obs_wspd",
 }
 
-def infer_issue_time(forecast_date, file_timestamp):
-    """
-    根据文件生成时间推断起报时间
-    - 凌晨两点半后(02:30~14:29): EC12Z → 前一天20:00
-    - 下午十四点半后(14:30~次日02:29): EC00Z → 当天08:00
-    
-    Args:
-        forecast_date: 预报起始日期 (datetime.date)
-        file_timestamp: 文件生成时间戳字符串，格式如 '20260215_041555'
-    
-    Returns:
-        issue_time: 起报时间 (datetime)
-    """
-    time_part = file_timestamp.split('_')[1]
-    hour = int(time_part[:2])
-    minute = int(time_part[2:4])
-    file_hour_decimal = hour + minute / 60
-    
-    if file_hour_decimal < 2.5:
-        issue_time = datetime.combine(forecast_date, datetime.min.time()) + timedelta(hours=8)
-    elif file_hour_decimal < 14.5:
-        issue_time = datetime.combine(forecast_date - timedelta(days=1), datetime.min.time()) + timedelta(hours=20)
-    else:
-        issue_time = datetime.combine(forecast_date, datetime.min.time()) + timedelta(hours=8)
-    
-    return issue_time
+LEAD_BUCKETS = [
+    (0, 24, "0-24h"),
+    (24, 48, "24-48h"),
+    (48, 72, "48-72h"),
+    (72, 120, "72-120h"),
+    (120, 168, "120-168h"),
+]
 
-def parse_filename(filename):
-    """
-    解析文件名，提取预报日期和生成时间戳
-    
-    Args:
-        filename: 文件名，如 'HGH_forecast_2026-02-15_20260215_041555.csv'
-    
-    Returns:
-        forecast_date: 预报起始日期
-        file_timestamp: 文件生成时间戳
-    """
-    pattern = r'HGH_forecast_(\d{4}-\d{2}-\d{2})_(\d{8}_\d{6})\.csv'
-    match = re.match(pattern, filename)
-    if match:
-        forecast_date = datetime.strptime(match.group(1), '%Y-%m-%d').date()
-        file_timestamp = match.group(2)
-        return forecast_date, file_timestamp
-    return None, None
 
-def load_forecast_data():
-    """
-    加载所有预报文件，提取关键字段
-    
-    Returns:
-        DataFrame with columns: target_time, issue_time, lead_hours, forecast_*
-    """
-    all_forecasts = []
-    files = [f for f in os.listdir(FORECAST_DIR) if f.startswith('HGH_forecast_') and f.endswith('.csv')]
-    
-    print(f"找到 {len(files)} 个预报文件")
-    
-    for filename in files:
-        forecast_date, file_timestamp = parse_filename(filename)
-        if forecast_date is None:
-            continue
-        
-        issue_time = infer_issue_time(forecast_date, file_timestamp)
-        
-        filepath = os.path.join(FORECAST_DIR, filename)
-        try:
-            df = pd.read_csv(filepath)
-        except Exception as e:
-            print(f"  [警告] 读取 {filename} 失败: {e}")
-            continue
-        
-        df['issue_time'] = issue_time
-        df['file_timestamp'] = file_timestamp
-        
-        df['target_time'] = pd.to_datetime(df['datetime_beijing'])
-        df['lead_hours'] = (df['target_time'] - df['issue_time']).dt.total_seconds() / 3600
-        
-        df = df.rename(columns={
-            'temperature_2m': 'forecast_temp',
-            'relative_humidity_2m': 'forecast_rhum',
-            'wind_speed_10m': 'forecast_wspd',
-            'pressure_msl': 'forecast_pres',
-            'wind_direction_10m': 'forecast_wdir',
-            'precipitation': 'forecast_prcp'
-        })
-        
-        all_forecasts.append(df)
-    
-    if not all_forecasts:
+def _to_builtin(value):
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return value.isoformat(sep=" ")
+    if isinstance(value, (list, tuple)):
+        return [_to_builtin(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _to_builtin(val) for key, val in value.items()}
+    return value
+
+
+def _issue_date_mask(df: pd.DataFrame, start: str, end: str) -> pd.Series:
+    start_ts = pd.Timestamp(start)
+    end_ts = pd.Timestamp(end)
+    return (df["issue_date"] >= start_ts) & (df["issue_date"] <= end_ts)
+
+
+def _safe_mean(values: Iterable[float]) -> Optional[float]:
+    values = list(values)
+    if not values:
         return None
-    
-    combined = pd.concat(all_forecasts, ignore_index=True)
-    print(f"加载预报数据: {len(combined)} 条记录")
-    
-    return combined
+    return float(np.mean(values))
 
-def load_observed_data():
-    """加载实况数据"""
-    df = pd.read_csv(OBSERVED_FILE)
-    df['datetime'] = pd.to_datetime(df['datetime'])
-    df = df.rename(columns={
-        'temp': 'obs_temp',
-        'rhum': 'obs_rhum',
-        'wspd': 'obs_wspd',
-        'pres': 'obs_pres',
-        'wdir': 'obs_wdir',
-        'prcp': 'obs_prcp'
-    })
-    print(f"加载实况数据: {len(df)} 条记录")
+
+def infer_observed_cache_path(start_dt: datetime, end_dt: datetime) -> Path:
+    return DATA_DIR / (
+        f"hangzhou_observed_{start_dt.strftime('%Y%m%d')}_{end_dt.strftime('%Y%m%d')}.csv"
+    )
+
+
+def fetch_meteostat_observations(start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
+    """Fetch hourly observations from Meteostat as the current fallback truth source."""
+    meteostat_dir = DATA_DIR / ".meteostat_cache"
+    meteostat_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MS_CACHE_DIRECTORY", str(meteostat_dir))
+    os.environ.setdefault("MS_STATIONS_DB_FILE", str(meteostat_dir / "stations.db"))
+
+    try:
+        from meteostat import Hourly  # type: ignore
+    except Exception:
+        import meteostat  # type: ignore
+
+        Hourly = getattr(meteostat, "Hourly", None) or getattr(meteostat, "hourly", None)
+        if Hourly is None:
+            raise RuntimeError("Meteostat is not available in this environment")
+
+    for attempt in range(3):
+        try:
+            hourly = Hourly(HANGZHOU_STATION_ID, start_dt, end_dt)
+            df = hourly.fetch()
+            if df is None or df.empty:
+                raise RuntimeError("Meteostat returned no hourly observations")
+            break
+        except Exception:
+            if attempt == 2:
+                raise
+
+    df = df.copy()
+    df.index = pd.to_datetime(df.index)
+    if getattr(df.index, "tz", None) is None:
+        df.index = df.index.tz_localize("UTC")
+    df.index = df.index.tz_convert(HANGZHOU_TIMEZONE).tz_localize(None)
+    df = df.reset_index()
+    df = df.rename(columns={"time": "datetime", "index": "datetime"})
+    df["datetime"] = pd.to_datetime(df["datetime"]).dt.floor("h")
+    df = df.rename(
+        columns={
+            "temp": "obs_temp",
+            "rhum": "obs_rhum",
+            "prcp": "obs_prcp",
+            "wspd": "obs_wspd",
+            "pres": "obs_pres",
+            "wdir": "obs_wdir",
+            "cldc": "obs_cldc",
+            "coco": "obs_coco",
+        }
+    )
+
+    required_cols = [
+        "datetime",
+        "obs_temp",
+        "obs_rhum",
+        "obs_prcp",
+        "obs_wspd",
+        "obs_pres",
+        "obs_wdir",
+        "obs_cldc",
+        "obs_coco",
+    ]
+    for column in required_cols:
+        if column not in df.columns:
+            df[column] = pd.NA
+
+    full_range = pd.date_range(
+        start=datetime.combine(start_dt.date(), time(0, 0)),
+        end=datetime.combine(end_dt.date(), time(23, 0)),
+        freq="h",
+    )
+    df = pd.DataFrame({"datetime": full_range}).merge(df[required_cols], on="datetime", how="left")
     return df
 
-def align_data(forecast_df, observed_df):
-    """
-    对齐预报和实况数据
-    
-    Returns:
-        DataFrame with both forecast and observed values
-    """
-    forecast_df = forecast_df.copy()
-    forecast_df['target_time'] = pd.to_datetime(forecast_df['target_time'])
-    
-    merged = forecast_df.merge(
-        observed_df,
-        left_on='target_time',
-        right_on='datetime',
-        how='inner'
-    )
-    
-    print(f"对齐后数据: {len(merged)} 条记录")
-    
+
+def load_or_fetch_observed_data(start_dt: datetime, end_dt: datetime) -> Tuple[pd.DataFrame, dict]:
+    cache_path = infer_observed_cache_path(start_dt, end_dt)
+    source_name = HANGZHOU_OBS_FALLBACK_NAME
+    source_type = "meteostat_fallback"
+
+    if cache_path.exists():
+        observed_df = pd.read_csv(cache_path)
+        observed_df["datetime"] = pd.to_datetime(observed_df["datetime"])
+    else:
+        observed_df = fetch_meteostat_observations(start_dt, end_dt)
+        observed_df.to_csv(cache_path, index=False, encoding="utf-8")
+
+    metadata = {
+        "source_name": source_name,
+        "source_type": source_type,
+        "station_id": HANGZHOU_STATION_ID,
+        "station_name": HANGZHOU_STATION_NAME,
+        "latitude": HANGZHOU_LAT,
+        "longitude": HANGZHOU_LON,
+        "timezone": HANGZHOU_TIMEZONE,
+        "fallback_note": "Using Meteostat 58457 as the current best available hourly truth source.",
+        "cache_path": str(cache_path),
+        "time_range": {
+            "start": observed_df["datetime"].min().isoformat(sep=" "),
+            "end": observed_df["datetime"].max().isoformat(sep=" "),
+        },
+        "rows": int(len(observed_df)),
+        "non_null_ratio": {
+            column: float(observed_df[column].notna().mean())
+            for column in observed_df.columns
+            if column.startswith("obs_")
+        },
+        "missing_hours": int(observed_df["obs_temp"].isna().sum()),
+    }
+    return observed_df, metadata
+
+
+def load_forecast_data() -> Tuple[pd.DataFrame, dict]:
+    records: List[pd.DataFrame] = []
+    audit_entries: List[dict] = []
+    file_time_counter: Counter = Counter()
+
+    files = sorted(FORECAST_DIR.glob("HZ_forecast_*.csv"))
+    if not files:
+        raise FileNotFoundError(f"No forecast files found in {FORECAST_DIR}")
+
+    for path in files:
+        estimate = infer_issue_time_from_filename(path.name)
+        file_time_counter[path.stem.split("_")[-1][:4]] += 1
+        audit_entry = {
+            "file": path.name,
+            "status": "ok" if estimate.valid else "skipped",
+            "issue_cycle": estimate.issue_cycle,
+            "issue_time_local": estimate.issue_time_local.isoformat(sep=" ")
+            if estimate.issue_time_local
+            else None,
+            "reason": estimate.reason,
+            "used_tolerance": estimate.used_tolerance,
+        }
+        if not estimate.valid:
+            audit_entries.append(audit_entry)
+            continue
+
+        df = pd.read_csv(path)
+        if df.empty:
+            audit_entry["status"] = "empty"
+            audit_entries.append(audit_entry)
+            continue
+
+        df["target_time"] = pd.to_datetime(df["datetime_beijing"])
+        df["issue_time"] = estimate.issue_time_local
+        df["issue_cycle"] = estimate.issue_cycle
+        df["collection_file"] = path.name
+        df["lead_hours"] = (df["target_time"] - df["issue_time"]).dt.total_seconds() / 3600
+        df = df[(df["lead_hours"] >= 0) & (df["lead_hours"] <= MAX_LEAD_HOURS)].copy()
+        df = df.rename(
+            columns={
+                "temperature_2m": "forecast_temp",
+                "relative_humidity_2m": "forecast_rhum",
+                "wind_speed_10m": "forecast_wspd",
+                "pressure_msl": "forecast_pres",
+                "wind_direction_10m": "forecast_wdir",
+                "precipitation": "forecast_prcp",
+            }
+        )
+        records.append(df)
+        audit_entry["status"] = "loaded"
+        audit_entry["rows"] = int(len(df))
+        audit_entries.append(audit_entry)
+
+    if not records:
+        raise RuntimeError("No valid forecast files remained after issue-time filtering")
+
+    combined = pd.concat(records, ignore_index=True)
+    combined = combined.sort_values(["issue_time", "target_time", "collection_file"])
+    combined = combined.drop_duplicates(subset=["issue_time", "target_time"], keep="last")
+    combined["issue_date"] = combined["issue_time"].dt.floor("D")
+
+    audit = {
+        "forecast_dir": str(FORECAST_DIR),
+        "file_count": int(len(files)),
+        "loaded_file_count": int(sum(item["status"] == "loaded" for item in audit_entries)),
+        "skipped_file_count": int(sum(item["status"] != "loaded" for item in audit_entries)),
+        "collection_time_counts": dict(sorted(file_time_counter.items())),
+        "invalid_files": [item for item in audit_entries if item["status"] != "loaded"],
+        "loaded_files": [item for item in audit_entries if item["status"] == "loaded"],
+        "aligned_target_range": {
+            "start": combined["target_time"].min().isoformat(sep=" "),
+            "end": combined["target_time"].max().isoformat(sep=" "),
+        },
+        "issue_time_range": {
+            "start": combined["issue_time"].min().isoformat(sep=" "),
+            "end": combined["issue_time"].max().isoformat(sep=" "),
+        },
+        "rows": int(len(combined)),
+    }
+    return combined, audit
+
+
+def align_data(forecast_df: pd.DataFrame, observed_df: pd.DataFrame) -> pd.DataFrame:
+    merged = forecast_df.merge(observed_df, left_on="target_time", right_on="datetime", how="inner")
+    merged = merged.drop_duplicates(subset=["issue_time", "target_time"], keep="last")
     return merged
 
-def create_features(df):
-    """
-    创建特征
-    
-    Args:
-        df: 包含预报和实况数据的DataFrame
-    
-    Returns:
-        DataFrame with features added
-    """
+
+def create_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    
-    df['hour'] = df['target_time'].dt.hour
-    df['month'] = df['target_time'].dt.month
-    df['day_of_week'] = df['target_time'].dt.dayofweek
-    df['is_day'] = ((df['hour'] >= 6) & (df['hour'] < 18)).astype(int)
-    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
-    
-    def categorize_lead(hours):
-        if hours <= 24:
-            return 0
-        elif hours <= 48:
-            return 1
-        elif hours <= 72:
-            return 2
-        elif hours <= 120:
-            return 3
-        else:
-            return 4
-    
-    df['lead_category'] = df['lead_hours'].apply(categorize_lead)
-    
-    df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
-    df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
-    
+    df["hour"] = df["target_time"].dt.hour
+    df["month"] = df["target_time"].dt.month
+    df["day_of_week"] = df["target_time"].dt.dayofweek
+    df["is_day"] = ((df["hour"] >= 6) & (df["hour"] < 18)).astype(int)
+    df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+    df["lead_category"] = pd.cut(
+        df["lead_hours"],
+        bins=[-1, 24, 48, 72, 120, MAX_LEAD_HOURS],
+        labels=[0, 1, 2, 3, 4],
+    ).astype(int)
+    df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
     return df
 
-def prepare_training_data(df, target_var):
-    """
-    准备训练数据
-    
-    按起报时间(issue_time)划分：
-    - 训练集: issue_time <= 2026-01-31 的预报
-    - 测试集: issue_time > 2026-01-31 的预报
-    
-    Args:
-        df: 包含特征的DataFrame
-        target_var: 目标变量名 ('temp', 'rhum', 'wspd')
-    
-    Returns:
-        X_train, y_train, X_test, y_test, train_df, test_df
-    """
-    df = df.copy()
-    
-    obs_col = f'obs_{target_var}'
-    df = df.dropna(subset=FEATURE_COLUMNS + [obs_col])
-    
-    train_end_dt = datetime.strptime(TRAIN_END_DATE, '%Y-%m-%d')
-    train_mask = df['issue_time'] <= train_end_dt
-    test_mask = df['issue_time'] > train_end_dt
-    
-    train_df = df[train_mask].copy()
-    test_df = df[test_mask].copy()
-    
-    print(f"\n准备 {target_var} 训练数据:")
-    print(f"  训练集: {len(train_df)} 条 (起报时间 <= {TRAIN_END_DATE})")
-    print(f"  测试集: {len(test_df)} 条 (起报时间 > {TRAIN_END_DATE})")
-    
-    X_train = train_df[FEATURE_COLUMNS]
-    y_train = train_df[obs_col]
-    X_test = test_df[FEATURE_COLUMNS]
-    y_test = test_df[obs_col]
-    
-    return X_train, y_train, X_test, y_test, train_df, test_df
 
-def train_model(X_train, y_train):
-    """
-    训练随机森林模型
-    
-    Returns:
-        trained model
-    """
+def train_regression_model(X_train: pd.DataFrame, y_train: pd.Series) -> RandomForestRegressor:
     model = RandomForestRegressor(
-        n_estimators=100,
-        max_depth=15,
+        n_estimators=220,
+        max_depth=16,
         min_samples_split=5,
         min_samples_leaf=2,
         random_state=42,
-        n_jobs=-1
+        n_jobs=1,
     )
-    
     model.fit(X_train, y_train)
-    
     return model
 
-def evaluate_model(model, X_test, y_test, test_df, target_var, forecast_col):
-    """
-    评估模型性能
-    
-    Returns:
-        dict with evaluation metrics
-    """
-    y_pred = model.predict(X_test)
-    y_forecast = test_df[forecast_col].values
-    
-    original_mae = mean_absolute_error(y_test, y_forecast)
-    corrected_mae = mean_absolute_error(y_test, y_pred)
-    
-    original_rmse = np.sqrt(mean_squared_error(y_test, y_forecast))
-    corrected_rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-    
-    original_bias = np.mean(y_forecast - y_test)
-    corrected_bias = np.mean(y_pred - y_test)
-    
-    improvement = (original_mae - corrected_mae) / original_mae * 100
-    
-    results = {
-        'target': target_var,
-        'original_mae': original_mae,
-        'corrected_mae': corrected_mae,
-        'original_rmse': original_rmse,
-        'corrected_rmse': corrected_rmse,
-        'original_bias': original_bias,
-        'corrected_bias': corrected_bias,
-        'improvement': improvement,
-        'y_test': y_test,
-        'y_pred': y_pred,
-        'y_forecast': y_forecast,
-        'test_df': test_df
-    }
-    
-    return results
 
-def evaluate_by_lead_time(results, target_var, forecast_col):
-    """按预报时效分组评估"""
-    test_df = results['test_df'].copy()
-    y_test = results['y_test']
-    y_pred = results['y_pred']
-    y_forecast = results['y_forecast']
-    
-    test_df['y_test'] = y_test.values if hasattr(y_test, 'values') else y_test
-    test_df['y_pred'] = y_pred
-    test_df['y_forecast'] = y_forecast
-    
-    lead_bins = [
-        (0, 24, '0-24h'),
-        (24, 48, '24-48h'),
-        (48, 72, '48-72h'),
-        (72, 120, '72-120h'),
-        (120, 168, '120-168h')
-    ]
-    
-    lead_results = []
-    
-    for min_lead, max_lead, label in lead_bins:
-        mask = (test_df['lead_hours'] > min_lead) & (test_df['lead_hours'] <= max_lead)
-        if mask.sum() == 0:
-            continue
-        
-        subset = test_df[mask]
-        
-        orig_mae = mean_absolute_error(subset['y_test'], subset['y_forecast'])
-        corr_mae = mean_absolute_error(subset['y_test'], subset['y_pred'])
-        improvement = (orig_mae - corr_mae) / orig_mae * 100 if orig_mae > 0 else 0
-        
-        lead_results.append({
-            'lead_time': label,
-            'samples': mask.sum(),
-            'original_mae': orig_mae,
-            'corrected_mae': corr_mae,
-            'improvement': improvement
-        })
-    
-    return pd.DataFrame(lead_results)
-
-def save_model(model, target_var, feature_columns):
-    """保存模型和配置"""
-    if not os.path.exists(MODELS_DIR):
-        os.makedirs(MODELS_DIR)
-    
-    model_path = os.path.join(MODELS_DIR, f'rf_{target_var}.pkl')
-    with open(model_path, 'wb') as f:
-        pickle.dump(model, f)
-    print(f"  模型已保存: {model_path}")
-    
-    config = {
-        'feature_columns': feature_columns,
-        'target_variable': target_var,
-        'train_end_date': TRAIN_END_DATE,
-        'max_lead_hours': MAX_LEAD_HOURS,
-        'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    config_path = os.path.join(MODELS_DIR, f'config_{target_var}.json')
-    with open(config_path, 'w', encoding='utf-8') as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
-    print(f"  配置已保存: {config_path}")
-
-def prepare_precip_data(df):
-    """
-    准备降水训练数据
-    
-    Returns:
-        X_train, y_clf_train, y_reg_train, X_test, y_clf_test, y_reg_test, train_df, test_df
-    """
-    df = df.copy()
-    
-    df = df.dropna(subset=FEATURE_COLUMNS + ['obs_prcp', 'forecast_prcp'])
-    
-    df['has_precip'] = (df['obs_prcp'] > 0.1).astype(int)
-    
-    train_end_dt = datetime.strptime(TRAIN_END_DATE, '%Y-%m-%d')
-    train_mask = df['issue_time'] <= train_end_dt
-    test_mask = df['issue_time'] > train_end_dt
-    
-    train_df = df[train_mask].copy()
-    test_df = df[test_mask].copy()
-    
-    print(f"\n准备降水训练数据:")
-    print(f"  训练集: {len(train_df)} 条 (起报时间 <= {TRAIN_END_DATE})")
-    print(f"  测试集: {len(test_df)} 条 (起报时间 > {TRAIN_END_DATE})")
-    
-    train_precip_count = train_df['has_precip'].sum()
-    test_precip_count = test_df['has_precip'].sum()
-    print(f"  训练集降水样本: {train_precip_count} ({train_precip_count/len(train_df)*100:.1f}%)")
-    print(f"  测试集降水样本: {test_precip_count} ({test_precip_count/len(test_df)*100:.1f}%)")
-    
-    X_train = train_df[FEATURE_COLUMNS]
-    y_clf_train = train_df['has_precip']
-    y_reg_train = train_df['obs_prcp']
-    
-    X_test = test_df[FEATURE_COLUMNS]
-    y_clf_test = test_df['has_precip']
-    y_reg_test = test_df['obs_prcp']
-    
-    return X_train, y_clf_train, y_reg_train, X_test, y_clf_test, y_reg_test, train_df, test_df
-
-def train_precip_classifier(X_train, y_train):
-    """训练降水分类模型"""
+def train_precip_classifier(X_train: pd.DataFrame, y_train: pd.Series) -> RandomForestClassifier:
     model = RandomForestClassifier(
-        n_estimators=100,
-        max_depth=10,
+        n_estimators=220,
+        max_depth=12,
         min_samples_split=5,
         min_samples_leaf=2,
+        class_weight="balanced",
         random_state=42,
-        n_jobs=-1,
-        class_weight='balanced'
+        n_jobs=1,
     )
     model.fit(X_train, y_train)
     return model
 
-def train_precip_regressor(X_train, y_train):
-    """训练降水回归模型（仅降水样本）"""
+
+def train_precip_regressor(X_train: pd.DataFrame, y_train: pd.Series) -> RandomForestRegressor:
     model = RandomForestRegressor(
-        n_estimators=100,
-        max_depth=10,
+        n_estimators=180,
+        max_depth=12,
         min_samples_split=5,
         min_samples_leaf=2,
         random_state=42,
-        n_jobs=-1
+        n_jobs=1,
     )
     model.fit(X_train, y_train)
     return model
 
-def evaluate_precip_model(clf_model, reg_model, X_test, y_clf_test, y_reg_test, test_df):
-    """
-    评估降水模型
-    
-    Returns:
-        dict with evaluation metrics
-    """
-    y_pred_proba = clf_model.predict_proba(X_test)[:, 1]
-    y_pred_clf = (y_pred_proba > 0.5).astype(int)
-    
-    accuracy = accuracy_score(y_clf_test, y_pred_clf)
-    precision = precision_score(y_clf_test, y_pred_clf, zero_division=0)
-    recall = recall_score(y_clf_test, y_pred_clf, zero_division=0)
-    f1 = f1_score(y_clf_test, y_pred_clf, zero_division=0)
-    
-    y_forecast = test_df['forecast_prcp'].values
-    
-    precip_mask = y_clf_test == 1
-    if precip_mask.sum() > 0:
-        X_precip = X_test[precip_mask]
-        y_reg_precip = y_reg_test[precip_mask]
-        y_forecast_precip = y_forecast[precip_mask]
-        
-        y_pred_reg = reg_model.predict(X_precip)
-        
-        mae_original = mean_absolute_error(y_reg_precip, y_forecast_precip)
-        mae_corrected = mean_absolute_error(y_reg_precip, y_pred_reg)
-        improvement = (mae_original - mae_corrected) / mae_original * 100 if mae_original > 0 else 0
-    else:
-        mae_original = 0
-        mae_corrected = 0
-        improvement = 0
-    
-    y_pred_combined = np.where(y_pred_clf == 1, reg_model.predict(X_test), 0)
-    overall_mae_original = mean_absolute_error(y_reg_test, y_forecast)
-    overall_mae_corrected = mean_absolute_error(y_reg_test, y_pred_combined)
-    overall_improvement = (overall_mae_original - overall_mae_corrected) / overall_mae_original * 100 if overall_mae_original > 0 else 0
-    
-    results = {
-        'accuracy': accuracy,
-        'precision': precision,
-        'recall': recall,
-        'f1': f1,
-        'mae_original': mae_original,
-        'mae_corrected': mae_corrected,
-        'improvement': improvement,
-        'overall_mae_original': overall_mae_original,
-        'overall_mae_corrected': overall_mae_corrected,
-        'overall_improvement': overall_improvement,
-        'precip_samples': precip_mask.sum(),
-        'y_pred_clf': y_pred_clf,
-        'y_pred_combined': y_pred_combined
+
+def evaluate_lead_buckets(test_df: pd.DataFrame, truth_col: str, baseline_col: str, pred_col: str) -> List[dict]:
+    bucket_results = []
+    for start, end, label in LEAD_BUCKETS:
+        mask = (test_df["lead_hours"] > start) & (test_df["lead_hours"] <= end)
+        if not mask.any():
+            continue
+        subset = test_df.loc[mask]
+        original_mae = mean_absolute_error(subset[truth_col], subset[baseline_col])
+        corrected_mae = mean_absolute_error(subset[truth_col], subset[pred_col])
+        improvement = ((original_mae - corrected_mae) / original_mae * 100) if original_mae else 0.0
+        bucket_results.append(
+            {
+                "lead_time": label,
+                "samples": int(mask.sum()),
+                "original_mae": float(original_mae),
+                "corrected_mae": float(corrected_mae),
+                "improvement_pct": float(improvement),
+            }
+        )
+    return bucket_results
+
+
+def evaluate_regression(
+    model: RandomForestRegressor,
+    test_df: pd.DataFrame,
+    target_var: str,
+) -> dict:
+    truth_col = TARGET_COLUMNS[target_var]
+    forecast_col = f"forecast_{target_var}"
+    eval_df = test_df.dropna(subset=FEATURE_COLUMNS + [truth_col, forecast_col]).copy()
+    if eval_df.empty:
+        raise RuntimeError(f"No evaluation samples available for {target_var}")
+
+    eval_df["predicted"] = model.predict(eval_df[FEATURE_COLUMNS])
+    original_mae = mean_absolute_error(eval_df[truth_col], eval_df[forecast_col])
+    corrected_mae = mean_absolute_error(eval_df[truth_col], eval_df["predicted"])
+    original_rmse = np.sqrt(mean_squared_error(eval_df[truth_col], eval_df[forecast_col]))
+    corrected_rmse = np.sqrt(mean_squared_error(eval_df[truth_col], eval_df["predicted"]))
+    original_bias = float(np.mean(eval_df[forecast_col] - eval_df[truth_col]))
+    corrected_bias = float(np.mean(eval_df["predicted"] - eval_df[truth_col]))
+    improvement_pct = ((original_mae - corrected_mae) / original_mae * 100) if original_mae else 0.0
+
+    return {
+        "samples": int(len(eval_df)),
+        "original_mae": float(original_mae),
+        "corrected_mae": float(corrected_mae),
+        "original_rmse": float(original_rmse),
+        "corrected_rmse": float(corrected_rmse),
+        "original_bias": original_bias,
+        "corrected_bias": corrected_bias,
+        "improvement_pct": float(improvement_pct),
+        "lead_buckets": evaluate_lead_buckets(eval_df, truth_col, forecast_col, "predicted"),
     }
-    
+
+
+def prepare_precip_frames(feature_df: pd.DataFrame) -> pd.DataFrame:
+    df = feature_df.dropna(subset=FEATURE_COLUMNS + ["obs_prcp", "forecast_prcp"]).copy()
+    df["obs_has_precip"] = (df["obs_prcp"] > OBS_PRCP_THRESHOLD).astype(int)
+    df["forecast_has_precip"] = (df["forecast_prcp"] > OBS_PRCP_THRESHOLD).astype(int)
+    return df
+
+
+def evaluate_precip_models(
+    clf_model: RandomForestClassifier,
+    reg_model: RandomForestRegressor,
+    test_df: pd.DataFrame,
+) -> dict:
+    eval_df = prepare_precip_frames(test_df)
+    if eval_df.empty:
+        raise RuntimeError("No precipitation evaluation samples available")
+
+    eval_df["pred_prob"] = clf_model.predict_proba(eval_df[FEATURE_COLUMNS])[:, 1]
+    eval_df["pred_has_precip"] = (eval_df["pred_prob"] >= 0.5).astype(int)
+    eval_df["pred_prcp_amount"] = np.where(
+        eval_df["pred_has_precip"] == 1,
+        reg_model.predict(eval_df[FEATURE_COLUMNS]),
+        0.0,
+    )
+
+    raw_metrics = {
+        "accuracy": float(accuracy_score(eval_df["obs_has_precip"], eval_df["forecast_has_precip"])),
+        "precision": float(
+            precision_score(eval_df["obs_has_precip"], eval_df["forecast_has_precip"], zero_division=0)
+        ),
+        "recall": float(recall_score(eval_df["obs_has_precip"], eval_df["forecast_has_precip"], zero_division=0)),
+        "f1": float(f1_score(eval_df["obs_has_precip"], eval_df["forecast_has_precip"], zero_division=0)),
+    }
+    corrected_metrics = {
+        "accuracy": float(accuracy_score(eval_df["obs_has_precip"], eval_df["pred_has_precip"])),
+        "precision": float(
+            precision_score(eval_df["obs_has_precip"], eval_df["pred_has_precip"], zero_division=0)
+        ),
+        "recall": float(recall_score(eval_df["obs_has_precip"], eval_df["pred_has_precip"], zero_division=0)),
+        "f1": float(f1_score(eval_df["obs_has_precip"], eval_df["pred_has_precip"], zero_division=0)),
+    }
+
+    rainy_eval = eval_df[eval_df["obs_has_precip"] == 1].copy()
+    rainy_raw_mae = None
+    rainy_corrected_mae = None
+    rainy_improvement = None
+    if not rainy_eval.empty:
+        rainy_raw_mae = float(mean_absolute_error(rainy_eval["obs_prcp"], rainy_eval["forecast_prcp"]))
+        rainy_corrected_mae = float(
+            mean_absolute_error(rainy_eval["obs_prcp"], rainy_eval["pred_prcp_amount"])
+        )
+        rainy_improvement = (
+            float((rainy_raw_mae - rainy_corrected_mae) / rainy_raw_mae * 100) if rainy_raw_mae else 0.0
+        )
+
+    overall_raw_mae = float(mean_absolute_error(eval_df["obs_prcp"], eval_df["forecast_prcp"]))
+    overall_corrected_mae = float(mean_absolute_error(eval_df["obs_prcp"], eval_df["pred_prcp_amount"]))
+    overall_improvement = float(
+        (overall_raw_mae - overall_corrected_mae) / overall_raw_mae * 100
+    ) if overall_raw_mae else 0.0
+
+    return {
+        "samples": int(len(eval_df)),
+        "rainy_samples": int(len(rainy_eval)),
+        "classification_raw": raw_metrics,
+        "classification_corrected": corrected_metrics,
+        "rainy_mae_raw": rainy_raw_mae,
+        "rainy_mae_corrected": rainy_corrected_mae,
+        "rainy_improvement_pct": rainy_improvement,
+        "overall_mae_raw": overall_raw_mae,
+        "overall_mae_corrected": overall_corrected_mae,
+        "overall_improvement_pct": overall_improvement,
+    }
+
+
+def run_regression_folds(feature_df: pd.DataFrame, target_var: str) -> List[dict]:
+    truth_col = TARGET_COLUMNS[target_var]
+    forecast_col = f"forecast_{target_var}"
+    valid_df = feature_df.dropna(subset=FEATURE_COLUMNS + [truth_col, forecast_col]).copy()
+    results = []
+    for fold in FOLDS:
+        train_mask = _issue_date_mask(valid_df, fold["train_start"], fold["train_end"])
+        eval_mask = _issue_date_mask(valid_df, fold["eval_start"], fold["eval_end"])
+        train_df = valid_df.loc[train_mask]
+        eval_df = valid_df.loc[eval_mask]
+        if train_df.empty or eval_df.empty:
+            results.append({"name": fold["name"], "skipped": True, "reason": "insufficient_samples"})
+            continue
+        model = train_regression_model(train_df[FEATURE_COLUMNS], train_df[truth_col])
+        fold_metrics = evaluate_regression(model, eval_df, target_var)
+        fold_metrics["name"] = fold["name"]
+        fold_metrics["train_rows"] = int(len(train_df))
+        fold_metrics["eval_rows"] = int(len(eval_df))
+        results.append(fold_metrics)
     return results
 
-def print_precip_evaluation_report(results):
-    """打印降水模型评估报告"""
-    print(f"\n{'='*60}")
-    print(f" 降水模型评估报告")
-    print(f"{'='*60}")
-    
-    print(f"\n分类模型性能:")
-    print(f"  准确率:   {results['accuracy']:.3f}")
-    print(f"  精确率:   {results['precision']:.3f}")
-    print(f"  召回率:   {results['recall']:.3f}")
-    print(f"  F1分数:   {results['f1']:.3f}")
-    
-    print(f"\n回归模型性能 (仅降水样本, n={results['precip_samples']}):")
-    print(f"  原始 MAE:  {results['mae_original']:.3f} mm")
-    print(f"  校正 MAE:  {results['mae_corrected']:.3f} mm")
-    print(f"  改进幅度:  {results['improvement']:.1f}%")
-    
-    print(f"\n整体降水MAE (所有样本):")
-    print(f"  原始 MAE:  {results['overall_mae_original']:.3f} mm")
-    print(f"  校正 MAE:  {results['overall_mae_corrected']:.3f} mm")
-    print(f"  改进幅度:  {results['overall_improvement']:.1f}%")
 
-def print_evaluation_report(results, lead_results, target_var):
-    """打印评估报告"""
-    print(f"\n{'='*60}")
-    print(f" {target_var.upper()} 模型评估报告")
-    print(f"{'='*60}")
-    
-    print(f"\n整体性能:")
-    print(f"  原始 MAE:  {results['original_mae']:.3f}")
-    print(f"  校正 MAE:  {results['corrected_mae']:.3f}")
-    print(f"  改进幅度:  {results['improvement']:.1f}%")
-    print(f"  原始 RMSE: {results['original_rmse']:.3f}")
-    print(f"  校正 RMSE: {results['corrected_rmse']:.3f}")
-    print(f"  原始偏差:  {results['original_bias']:.3f}")
-    print(f"  校正偏差:  {results['corrected_bias']:.3f}")
-    
-    print(f"\n按预报时效分组:")
-    print(f"  {'时效':<12} {'样本数':>8} {'原始MAE':>10} {'校正MAE':>10} {'改进%':>8}")
-    print(f"  {'-'*50}")
-    for _, row in lead_results.iterrows():
-        print(f"  {row['lead_time']:<12} {row['samples']:>8} {row['original_mae']:>10.3f} {row['corrected_mae']:>10.3f} {row['improvement']:>7.1f}%")
-
-def main():
-    print("="*60)
-    print(" 随机森林误差校正训练")
-    print("="*60)
-    
-    print("\n[步骤1] 加载数据...")
-    forecast_df = load_forecast_data()
-    observed_df = load_observed_data()
-    
-    print("\n[步骤2] 数据对齐...")
-    aligned_df = align_data(forecast_df, observed_df)
-    
-    aligned_df = aligned_df[aligned_df['lead_hours'] <= MAX_LEAD_HOURS]
-    print(f"  过滤预报时效>{MAX_LEAD_HOURS}h后: {len(aligned_df)} 条")
-    
-    print("\n[步骤3] 特征工程...")
-    feature_df = create_features(aligned_df)
-    print(f"  特征列: {FEATURE_COLUMNS}")
-    
-    print("\n[步骤4] 模型训练与评估...")
-    
-    all_results = {}
-    all_lead_results = {}
-    
-    for target_var in TARGET_COLUMNS.keys():
-        print(f"\n{'='*40}")
-        print(f" 训练 {target_var} 模型")
-        print(f"{'='*40}")
-        
-        forecast_col = f'forecast_{target_var}'
-        
-        X_train, y_train, X_test, y_test, train_df, test_df = prepare_training_data(
-            feature_df, target_var
-        )
-        
-        if len(X_train) == 0 or len(X_test) == 0:
-            print(f"  [跳过] 训练或测试数据不足")
+def run_precip_folds(feature_df: pd.DataFrame) -> List[dict]:
+    valid_df = prepare_precip_frames(feature_df)
+    results = []
+    for fold in FOLDS:
+        train_mask = _issue_date_mask(valid_df, fold["train_start"], fold["train_end"])
+        eval_mask = _issue_date_mask(valid_df, fold["eval_start"], fold["eval_end"])
+        train_df = valid_df.loc[train_mask]
+        eval_df = valid_df.loc[eval_mask]
+        if train_df.empty or eval_df.empty or train_df["obs_has_precip"].nunique() < 2:
+            results.append({"name": fold["name"], "skipped": True, "reason": "insufficient_samples"})
             continue
-        
-        print(f"\n  训练模型...")
-        model = train_model(X_train, y_train)
-        
-        print(f"  评估模型...")
-        results = evaluate_model(model, X_test, y_test, test_df, target_var, forecast_col)
-        lead_results = evaluate_by_lead_time(results, target_var, forecast_col)
-        
-        print_evaluation_report(results, lead_results, target_var)
-        
-        all_results[target_var] = results
-        all_lead_results[target_var] = lead_results
-        
-        print(f"\n  保存模型...")
-        save_model(model, target_var, FEATURE_COLUMNS)
-    
-    print(f"\n{'='*40}")
-    print(f" 训练降水模型")
-    print(f"{'='*40}")
-    
-    X_train, y_clf_train, y_reg_train, X_test, y_clf_test, y_reg_test, train_df_precip, test_df_precip = prepare_precip_data(feature_df)
-    
-    if len(X_train) > 0 and len(X_test) > 0:
-        print(f"\n  训练降水分类模型...")
-        precip_clf_model = train_precip_classifier(X_train, y_clf_train)
-        
-        precip_mask_train = y_reg_train > 0.1
-        if precip_mask_train.sum() > 10:
-            print(f"  训练降水回归模型 (降水样本: {precip_mask_train.sum()})...")
-            precip_reg_model = train_precip_regressor(X_train[precip_mask_train], y_reg_train[precip_mask_train])
-        else:
-            print(f"  [警告] 训练集降水样本不足 ({precip_mask_train.sum()}), 使用全量数据训练")
-            precip_reg_model = train_precip_regressor(X_train, y_reg_train)
-        
-        print(f"\n  评估降水模型...")
-        precip_results = evaluate_precip_model(precip_clf_model, precip_reg_model, X_test, y_clf_test, y_reg_test, test_df_precip)
-        
-        print_precip_evaluation_report(precip_results)
-        
-        print(f"\n  保存降水模型...")
-        save_model(precip_clf_model, 'precip_clf', FEATURE_COLUMNS)
-        save_model(precip_reg_model, 'precip_reg', FEATURE_COLUMNS)
+        clf_model = train_precip_classifier(train_df[FEATURE_COLUMNS], train_df["obs_has_precip"])
+        rainy_train = train_df[train_df["obs_has_precip"] == 1]
+        reg_train = rainy_train if len(rainy_train) >= 10 else train_df
+        reg_model = train_precip_regressor(reg_train[FEATURE_COLUMNS], reg_train["obs_prcp"])
+        metrics = evaluate_precip_models(clf_model, reg_model, eval_df)
+        metrics["name"] = fold["name"]
+        metrics["train_rows"] = int(len(train_df))
+        metrics["eval_rows"] = int(len(eval_df))
+        results.append(metrics)
+    return results
+
+
+def summarize_fold_metrics(fold_metrics: List[dict], metric_keys: List[str]) -> dict:
+    valid_metrics = [item for item in fold_metrics if not item.get("skipped")]
+    if not valid_metrics:
+        return {"completed_folds": 0}
+
+    summary = {"completed_folds": len(valid_metrics)}
+    for metric_key in metric_keys:
+        values = [item.get(metric_key) for item in valid_metrics if item.get(metric_key) is not None]
+        summary[f"{metric_key}_mean"] = _safe_mean(values)
+    return summary
+
+
+def save_pickle(model, name: str) -> None:
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(MODELS_DIR / f"rf_{name}.pkl", "wb") as handle:
+        pickle.dump(model, handle)
+
+
+def save_config(name: str, metadata: dict) -> None:
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "feature_columns": FEATURE_COLUMNS,
+        "target_variable": name,
+        "max_lead_hours": MAX_LEAD_HOURS,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    payload.update(metadata)
+    with open(MODELS_DIR / f"config_{name}.json", "w", encoding="utf-8") as handle:
+        json.dump(_to_builtin(payload), handle, ensure_ascii=False, indent=2)
+
+
+def train_production_regression_models(feature_df: pd.DataFrame) -> Dict[str, dict]:
+    outputs = {}
+    train_mask = _issue_date_mask(
+        feature_df,
+        TRAINING_START.strftime("%Y-%m-%d"),
+        PRODUCTION_TRAIN_END.strftime("%Y-%m-%d"),
+    )
+    for target_var, truth_col in TARGET_COLUMNS.items():
+        forecast_col = f"forecast_{target_var}"
+        train_df = feature_df.loc[train_mask].dropna(subset=FEATURE_COLUMNS + [truth_col, forecast_col]).copy()
+        if train_df.empty:
+            raise RuntimeError(f"No production training rows available for {target_var}")
+        model = train_regression_model(train_df[FEATURE_COLUMNS], train_df[truth_col])
+        save_pickle(model, target_var)
+        outputs[target_var] = {"model": model, "train_rows": int(len(train_df))}
+    return outputs
+
+
+def train_production_precip_models(feature_df: pd.DataFrame) -> Dict[str, dict]:
+    train_mask = _issue_date_mask(
+        feature_df,
+        TRAINING_START.strftime("%Y-%m-%d"),
+        PRODUCTION_TRAIN_END.strftime("%Y-%m-%d"),
+    )
+    train_df = prepare_precip_frames(feature_df.loc[train_mask])
+    if train_df.empty or train_df["obs_has_precip"].nunique() < 2:
+        raise RuntimeError("No valid production precipitation training rows available")
+
+    clf_model = train_precip_classifier(train_df[FEATURE_COLUMNS], train_df["obs_has_precip"])
+    rainy_train = train_df[train_df["obs_has_precip"] == 1]
+    reg_train = rainy_train if len(rainy_train) >= 10 else train_df
+    reg_model = train_precip_regressor(reg_train[FEATURE_COLUMNS], reg_train["obs_prcp"])
+    save_pickle(clf_model, "precip_clf")
+    save_pickle(reg_model, "precip_reg")
+    return {
+        "precip_clf": {"model": clf_model, "train_rows": int(len(train_df))},
+        "precip_reg": {"model": reg_model, "train_rows": int(len(reg_train))},
+    }
+
+
+def build_training_manifest(
+    forecast_audit: dict,
+    observation_metadata: dict,
+    aligned_df: pd.DataFrame,
+) -> dict:
+    return {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "forecast_dir": str(FORECAST_DIR),
+        "station": {
+            "station_id": HANGZHOU_STATION_ID,
+            "station_name": HANGZHOU_STATION_NAME,
+            "latitude": HANGZHOU_LAT,
+            "longitude": HANGZHOU_LON,
+            "timezone": HANGZHOU_TIMEZONE,
+        },
+        "forecast_audit": forecast_audit,
+        "observation": observation_metadata,
+        "alignment": {
+            "rows": int(len(aligned_df)),
+            "issue_time_range": {
+                "start": aligned_df["issue_time"].min().isoformat(sep=" "),
+                "end": aligned_df["issue_time"].max().isoformat(sep=" "),
+            },
+            "target_time_range": {
+                "start": aligned_df["target_time"].min().isoformat(sep=" "),
+                "end": aligned_df["target_time"].max().isoformat(sep=" "),
+            },
+            "duplicate_issue_target_pairs": int(
+                aligned_df.duplicated(subset=["issue_time", "target_time"]).sum()
+            ),
+        },
+        "splits": {
+            "folds": FOLDS,
+            "final_test": {
+                "start": FINAL_TEST_START.strftime("%Y-%m-%d"),
+                "end": FINAL_TEST_END.strftime("%Y-%m-%d"),
+            },
+            "production_train_end": PRODUCTION_TRAIN_END.strftime("%Y-%m-%d"),
+        },
+        "feature_columns": FEATURE_COLUMNS,
+        "max_lead_hours": MAX_LEAD_HOURS,
+    }
+
+
+def build_metrics_report(feature_df: pd.DataFrame) -> dict:
+    report = {"generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "regression": {}, "precipitation": {}}
+    production_train_end_for_test = (FINAL_TEST_START - timedelta(days=1)).strftime("%Y-%m-%d")
+    final_test_range = {
+        "start": FINAL_TEST_START.strftime("%Y-%m-%d"),
+        "end": FINAL_TEST_END.strftime("%Y-%m-%d"),
+    }
+
+    for target_var, truth_col in TARGET_COLUMNS.items():
+        forecast_col = f"forecast_{target_var}"
+        valid_df = feature_df.dropna(subset=FEATURE_COLUMNS + [truth_col, forecast_col]).copy()
+        test_mask = _issue_date_mask(valid_df, final_test_range["start"], final_test_range["end"])
+        train_mask = _issue_date_mask(valid_df, TRAINING_START.strftime("%Y-%m-%d"), production_train_end_for_test)
+        train_df = valid_df.loc[train_mask]
+        test_df = valid_df.loc[test_mask]
+        if train_df.empty or test_df.empty:
+            report["regression"][target_var] = {
+                "cross_validation": run_regression_folds(feature_df, target_var),
+                "final_test": {"skipped": True, "reason": "insufficient_samples"},
+            }
+            continue
+
+        model = train_regression_model(train_df[FEATURE_COLUMNS], train_df[truth_col])
+        cv_metrics = run_regression_folds(feature_df, target_var)
+        test_metrics = evaluate_regression(model, test_df, target_var)
+        test_metrics["train_rows"] = int(len(train_df))
+        test_metrics["test_rows"] = int(len(test_df))
+        report["regression"][target_var] = {
+            "cross_validation": cv_metrics,
+            "cross_validation_summary": summarize_fold_metrics(
+                cv_metrics,
+                ["original_mae", "corrected_mae", "improvement_pct", "original_rmse", "corrected_rmse"],
+            ),
+            "final_test": test_metrics,
+        }
+
+    precip_df = prepare_precip_frames(feature_df)
+    train_mask = _issue_date_mask(precip_df, TRAINING_START.strftime("%Y-%m-%d"), production_train_end_for_test)
+    test_mask = _issue_date_mask(precip_df, final_test_range["start"], final_test_range["end"])
+    train_df = precip_df.loc[train_mask]
+    test_df = precip_df.loc[test_mask]
+    cv_metrics = run_precip_folds(feature_df)
+    if train_df.empty or test_df.empty or train_df["obs_has_precip"].nunique() < 2:
+        report["precipitation"] = {
+            "cross_validation": cv_metrics,
+            "final_test": {"skipped": True, "reason": "insufficient_samples"},
+        }
     else:
-        print(f"  [跳过] 训练或测试数据不足")
-        precip_results = None
-    
-    print("\n" + "="*60)
-    print(" 训练完成!")
-    print("="*60)
-    
-    print("\n[汇总] 各变量改进情况:")
-    print(f"  {'变量':<8} {'原始MAE':>10} {'校正MAE':>10} {'改进%':>8}")
-    print(f"  {'-'*40}")
-    for var, res in all_results.items():
-        print(f"  {var:<8} {res['original_mae']:>10.3f} {res['corrected_mae']:>10.3f} {res['improvement']:>7.1f}%")
-    
-    if precip_results:
-        print(f"\n[降水模型汇总]")
-        print(f"  分类准确率: {precip_results['accuracy']:.1%}")
-        print(f"  降水MAE: {precip_results['mae_original']:.3f} → {precip_results['mae_corrected']:.3f} mm ({precip_results['improvement']:+.1f}%)")
-        print(f"  整体MAE:  {precip_results['overall_mae_original']:.3f} → {precip_results['overall_mae_corrected']:.3f} mm ({precip_results['overall_improvement']:+.1f}%)")
-    
-    print("\n[使用示例]")
-    print("""
-    # 加载模型进行校正
-    import pickle
-    import pandas as pd
-    import numpy as np
-    
-    # 1. 加载模型
-    with open('models/rf_temp.pkl', 'rb') as f:
-        temp_model = pickle.load(f)
-    with open('models/rf_wspd.pkl', 'rb') as f:
-        wspd_model = pickle.load(f)
-    with open('models/rf_precip_clf.pkl', 'rb') as f:
-        precip_clf = pickle.load(f)
-    with open('models/rf_precip_reg.pkl', 'rb') as f:
-        precip_reg = pickle.load(f)
-    
-    # 2. 准备特征 (与训练时相同的特征列)
-    features = ['forecast_temp', 'forecast_rhum', 'forecast_wspd', 'forecast_pres',
-                'hour', 'month', 'day_of_week', 'is_day', 'is_weekend',
-                'lead_hours', 'lead_category', 'hour_sin', 'hour_cos']
-    
-    # 3. 对新预报进行校正
-    corrected_temp = temp_model.predict(new_forecast[features])
-    corrected_wspd = wspd_model.predict(new_forecast[features])
-    
-    # 4. 降水校正 (两阶段)
-    has_precip = precip_clf.predict(new_forecast[features])
-    precip_amount = precip_reg.predict(new_forecast[features])
-    corrected_precip = np.where(has_precip == 1, precip_amount, 0)
-    """)
+        clf_model = train_precip_classifier(train_df[FEATURE_COLUMNS], train_df["obs_has_precip"])
+        rainy_train = train_df[train_df["obs_has_precip"] == 1]
+        reg_train = rainy_train if len(rainy_train) >= 10 else train_df
+        reg_model = train_precip_regressor(reg_train[FEATURE_COLUMNS], reg_train["obs_prcp"])
+        final_test_metrics = evaluate_precip_models(clf_model, reg_model, test_df)
+        final_test_metrics["train_rows"] = int(len(train_df))
+        final_test_metrics["test_rows"] = int(len(test_df))
+        report["precipitation"] = {
+            "cross_validation": cv_metrics,
+            "cross_validation_summary": summarize_fold_metrics(
+                cv_metrics,
+                ["overall_mae_raw", "overall_mae_corrected", "overall_improvement_pct"],
+            ),
+            "final_test": final_test_metrics,
+        }
+
+    return report
+
+
+def save_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(_to_builtin(payload), handle, ensure_ascii=False, indent=2)
+
+
+def main() -> None:
+    forecast_df, forecast_audit = load_forecast_data()
+    observed_start = forecast_df["target_time"].min().to_pydatetime()
+    observed_end = forecast_df["target_time"].max().to_pydatetime()
+    observed_df, observation_metadata = load_or_fetch_observed_data(observed_start, observed_end)
+
+    aligned_df = align_data(forecast_df, observed_df)
+    if aligned_df.empty:
+        raise RuntimeError("No aligned forecast/observation rows were produced")
+
+    feature_df = create_features(aligned_df)
+    metrics_report = build_metrics_report(feature_df)
+    manifest = build_training_manifest(forecast_audit, observation_metadata, aligned_df)
+
+    regression_models = train_production_regression_models(feature_df)
+    precip_models = train_production_precip_models(feature_df)
+
+    common_config = {
+        "forecast_dir": str(FORECAST_DIR),
+        "obs_source": observation_metadata["source_name"],
+        "obs_source_type": observation_metadata["source_type"],
+        "station_name": HANGZHOU_STATION_NAME,
+        "station_id": HANGZHOU_STATION_ID,
+        "latitude": HANGZHOU_LAT,
+        "longitude": HANGZHOU_LON,
+        "train_start": TRAINING_START.strftime("%Y-%m-%d"),
+        "train_end": PRODUCTION_TRAIN_END.strftime("%Y-%m-%d"),
+        "final_test_start": FINAL_TEST_START.strftime("%Y-%m-%d"),
+        "final_test_end": FINAL_TEST_END.strftime("%Y-%m-%d"),
+    }
+
+    for target_var, metadata in regression_models.items():
+        save_config(
+            target_var,
+            {
+                **common_config,
+                "train_rows": metadata["train_rows"],
+                "model_kind": "regression",
+            },
+        )
+
+    for target_var, metadata in precip_models.items():
+        save_config(
+            target_var,
+            {
+                **common_config,
+                "train_rows": metadata["train_rows"],
+                "model_kind": "precipitation",
+            },
+        )
+
+    save_json(MODELS_DIR / "training_manifest.json", manifest)
+    save_json(MODELS_DIR / "metrics_report.json", metrics_report)
+
+    print("=" * 72)
+    print("Bias correction retraining completed")
+    print("=" * 72)
+    print(f"Forecast rows aligned: {len(aligned_df)}")
+    print(f"Observed source: {observation_metadata['source_name']}")
+    print(f"Manifest: {MODELS_DIR / 'training_manifest.json'}")
+    print(f"Metrics: {MODELS_DIR / 'metrics_report.json'}")
+
+    for target_var in TARGET_COLUMNS:
+        test_metrics = metrics_report["regression"].get(target_var, {}).get("final_test", {})
+        if test_metrics.get("skipped"):
+            print(f"{target_var}: final test skipped ({test_metrics.get('reason')})")
+            continue
+        print(
+            f"{target_var}: MAE {test_metrics['original_mae']:.3f} -> "
+            f"{test_metrics['corrected_mae']:.3f} "
+            f"({test_metrics['improvement_pct']:+.1f}%)"
+        )
+
+    precip_test = metrics_report.get("precipitation", {}).get("final_test", {})
+    if precip_test and not precip_test.get("skipped"):
+        raw = precip_test["classification_raw"]
+        corrected = precip_test["classification_corrected"]
+        print(
+            "precip_classification: "
+            f"acc {raw['accuracy']:.3f}->{corrected['accuracy']:.3f}, "
+            f"recall {raw['recall']:.3f}->{corrected['recall']:.3f}, "
+            f"f1 {raw['f1']:.3f}->{corrected['f1']:.3f}"
+        )
+
 
 if __name__ == "__main__":
     main()
