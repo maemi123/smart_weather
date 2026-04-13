@@ -37,3 +37,14 @@ replacement1.txt
 replacement2.txt
 replacement3.txt
 k-7b899*
+
+# 论文写作与答辩素材
+docs/thesis_*.md
+docs/images/
+docs/diagrams/
+docs/diagrams/images/
+docs/*.doc
+docs/*.docx
+docs/*.pdf
+docs/*.ppt
+docs/*.pptx

@@ -118,6 +118,58 @@ def index():
     return render_template('index.html', city="杭州")
 
 
+def _estimate_dew_point_c(temp_c, humidity_pct):
+    """Estimate dew point in Celsius from temperature and relative humidity."""
+    if temp_c is None or humidity_pct is None:
+        return None
+
+    try:
+        temp_c = float(temp_c)
+        humidity_pct = float(humidity_pct)
+    except (TypeError, ValueError):
+        return None
+
+    humidity_pct = max(1.0, min(100.0, humidity_pct))
+    a = 17.27
+    b = 237.7
+    alpha = ((a * temp_c) / (b + temp_c)) + math.log(humidity_pct / 100.0)
+    return (b * alpha) / (a - alpha)
+
+
+def _describe_moisture(dew_point_c, humidity_pct=None):
+    """Describe dry/wet feeling mainly by dew point, with humidity fallback."""
+    if dew_point_c is not None:
+        if dew_point_c < 0:
+            return "干冷"
+        if dew_point_c < 8:
+            return "偏干"
+        if dew_point_c < 14:
+            return "舒适"
+        if dew_point_c < 18:
+            return "稍湿"
+        if dew_point_c < 22:
+            return "潮湿"
+        if dew_point_c < 25:
+            return "闷湿"
+        return "非常闷湿"
+
+    if humidity_pct is None:
+        return "未知"
+
+    try:
+        humidity_pct = float(humidity_pct)
+    except (TypeError, ValueError):
+        return "未知"
+
+    if humidity_pct < 35:
+        return "偏干"
+    if humidity_pct < 70:
+        return "舒适"
+    if humidity_pct < 85:
+        return "潮湿"
+    return "很湿"
+
+
 @app.route('/api/current-weather')
 def api_current_weather():
     try:
@@ -128,7 +180,7 @@ def api_current_weather():
             "latitude": latitude,
             "longitude": longitude,
             "current_weather": "true",
-            "hourly": "relative_humidity_2m,pressure_msl,precipitation,apparent_temperature",
+            "hourly": "relative_humidity_2m,pressure_msl,precipitation,apparent_temperature,dew_point_2m",
             "timezone": "Asia/Shanghai",
             "windspeed_unit": "ms",
         }
@@ -162,6 +214,10 @@ def api_current_weather():
         humidity = pick("relative_humidity_2m")
         pressure = pick("pressure_msl")
         precipitation = pick("precipitation", 0.0)
+        dew_point = pick("dew_point_2m")
+        if dew_point is None:
+            dew_point = _estimate_dew_point_c(temp, humidity)
+        moisture_desc = _describe_moisture(dew_point, humidity)
         wind_speed = current.get("windspeed")
         weather_code = current.get("weathercode")
         update_time = current_time or datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -173,6 +229,8 @@ def api_current_weather():
             "wind_speed": float(wind_speed) if wind_speed is not None else None,
             "pressure": float(pressure) if pressure is not None else None,
             "precipitation": float(precipitation) if precipitation is not None else None,
+            "dew_point": float(dew_point) if dew_point is not None else None,
+            "moisture_desc": moisture_desc,
             "weather_code": int(weather_code) if weather_code is not None else None,
             "update_time": str(update_time),
         })

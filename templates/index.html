@@ -102,6 +102,8 @@
                                 </div>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <div class="metric-pill small"><span class="muted">湿度</span> <span class="fw-bold" id="humidityText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
+                                    <div class="metric-pill small"><span class="muted">露点</span> <span class="fw-bold" id="dewPointText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
+                                    <div class="metric-pill small"><span class="muted">干湿感</span> <span class="fw-bold" id="moistureText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
                                     <div class="metric-pill small"><span class="muted">风速</span> <span class="fw-bold" id="windText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
                                     <div class="metric-pill small"><span class="muted">气压</span> <span class="fw-bold" id="pressureText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
                                     <div class="metric-pill small"><span class="muted">降水</span> <span class="fw-bold" id="precipText"><span class="skeleton d-inline-block w-80" style="height: 16px;"></span></span></div>
@@ -340,6 +342,8 @@
             document.getElementById('tempText').textContent = `${fmtNum(data.temp, 0)}°C`;
             document.getElementById('feelsText').textContent = `体感${fmtNum(data.feels_like, 0)}°C`;
             document.getElementById('humidityText').textContent = `${data.humidity ?? '--'}%`;
+            document.getElementById('dewPointText').textContent = `${fmtNum(data.dew_point, 0)}°C`;
+            document.getElementById('moistureText').textContent = data.moisture_desc || '--';
             document.getElementById('windText').textContent = `${fmtNum(data.wind_speed, 1)} m/s`;
             document.getElementById('pressureText').textContent = `${fmtNum(data.pressure, 0)} hPa`;
             document.getElementById('precipText').textContent = `${fmtNum(data.precipitation, 1)} mm`;
