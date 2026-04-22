@@ -23,6 +23,7 @@ from typing import Dict, List
 
 from history_analyzer import analyzer
 from ml_correction import apply_ml_correction, get_corrector
+from ml_correction_v2 import apply_ml_correction_v2, get_corrector_v2
 from datetime import datetime, timezone
 
 # 初始化服务
@@ -1174,6 +1175,7 @@ def apply_ml_correction_route():
         
         forecast_data = req_data['data']
         issue_time_str = req_data.get('issue_time')
+        ml_version = str(req_data.get('ml_version') or 'v1').lower()
         
         issue_time = None
         if issue_time_str:
@@ -1182,17 +1184,24 @@ def apply_ml_correction_route():
             except:
                 pass
         
-        corrected_data = apply_ml_correction(forecast_data, issue_time)
-        
-        corrector = get_corrector()
-        models_loaded = corrector.is_loaded()
+        if ml_version == 'v2':
+            corrector = get_corrector_v2()
+            models_loaded = corrector.is_loaded()
+            corrected_data = apply_ml_correction_v2(forecast_data, issue_time) if models_loaded else forecast_data
+        else:
+            ml_version = 'v1'
+            corrector = get_corrector()
+            models_loaded = corrector.is_loaded()
+            corrected_data = apply_ml_correction(forecast_data, issue_time) if models_loaded else forecast_data
         
         return jsonify({
             'success': True,
             'corrected_data': corrected_data,
             'message': '校正完成' if models_loaded else '模型未加载，返回原始数据',
             'models_loaded': models_loaded,
-            'issue_time_used': issue_time.isoformat(sep=' ') if issue_time else req_data.get('issue_time')
+            'issue_time_used': issue_time.isoformat(sep=' ') if issue_time else req_data.get('issue_time'),
+            'ml_version_used': ml_version,
+            'fallback_used': not models_loaded,
         })
         
     except Exception as e:
@@ -1210,16 +1219,20 @@ def apply_ml_correction_route():
 def ml_models_status():
     """检查ML模型状态"""
     try:
-        corrector = get_corrector()
-        models_status = {}
-        
+        corrector_v1 = get_corrector()
+        corrector_v2 = get_corrector_v2()
         expected_models = ['temp', 'rhum', 'wspd', 'precip_clf', 'precip_reg']
-        for model_name in expected_models:
-            models_status[model_name] = model_name in corrector.models
+        models_status = {
+            'v1': {model_name: model_name in corrector_v1.models for model_name in expected_models},
+            'v2': {model_name: model_name in corrector_v2.models for model_name in expected_models},
+        }
         
         return jsonify({
             'success': True,
-            'loaded': corrector.is_loaded(),
+            'loaded': {
+                'v1': corrector_v1.is_loaded(),
+                'v2': corrector_v2.is_loaded(),
+            },
             'models': models_status
         })
     except Exception as e:

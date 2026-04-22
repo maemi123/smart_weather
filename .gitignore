@@ -43,6 +43,9 @@ docs/thesis_*.md
 docs/images/
 docs/diagrams/
 docs/diagrams/images/
+docs/final_paper/*.docx
+docs/final_paper/*.pdf
+docs/final_paper/school_template_source.docx
 docs/*.doc
 docs/*.docx
 docs/*.pdf

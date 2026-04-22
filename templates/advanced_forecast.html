@@ -403,7 +403,7 @@
 
                 {% if detailed_72h and detailed_72h.data %}
                 <!-- ML校正开关 -->
-                <div class="ml-correction-toggle" style="margin-bottom: 15px; padding: 12px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
+                <div class="ml-correction-toggle" style="margin-bottom: 15px; padding: 12px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 20px;">🧠</span>
                         <div>
@@ -411,10 +411,16 @@
                             <div style="color: rgba(255,255,255,0.8); font-size: 12px;">基于随机森林模型，对温度、湿度、风速、降水进行校正</div>
                         </div>
                     </div>
-                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
-                        <input type="checkbox" id="ml_correction_toggle" onchange="toggleMLCorrection()" style="opacity: 0; width: 0; height: 0;">
-                        <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.3); transition: .3s; border-radius: 26px;"></span>
-                    </label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <select id="ml_version_select" onchange="handleMLVersionChange()" style="border: none; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #34495e;">
+                            <option value="v1" selected>ML V1</option>
+                            <option value="v2">ML V2</option>
+                        </select>
+                        <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                            <input type="checkbox" id="ml_correction_toggle" onchange="toggleMLCorrection()" style="opacity: 0; width: 0; height: 0;">
+                            <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.3); transition: .3s; border-radius: 26px;"></span>
+                        </label>
+                    </div>
                     <style>
                         .switch input:checked + .slider { background-color: #2ecc71; }
                         .switch .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
@@ -506,6 +512,7 @@
                     window.detailedData = {% if detailed_72h and detailed_72h.data %}{{ detailed_72h | tojson }}{% else %}null{% endif %};
                     window.mlCorrectedData = null;  // 存储校正后的数据
                     window.mlEnabled = false;       // ML校正开关状态
+                    window.mlVersion = 'v1';
 
                     window.__advancedForecastState = window.__advancedForecastState || {};
                     window.__advancedForecastState.detailedPromise = window.__advancedForecastState.detailedPromise || null;
@@ -554,17 +561,29 @@
                         return window.__advancedForecastState.detailedPromise;
                     }
 
+                    function handleMLVersionChange() {
+                        const versionEl = document.getElementById('ml_version_select');
+                        window.mlVersion = versionEl ? versionEl.value : 'v1';
+                        window.mlCorrectedData = null;
+                        window.mlCorrectedMultiData = null;
+                        if (window.mlEnabled) {
+                            toggleMLCorrection();
+                        }
+                    }
+
                     // 切换ML校正
                     async function toggleMLCorrection() {
                         const toggle = document.getElementById('ml_correction_toggle');
                         const statusDiv = document.getElementById('ml_status');
                         const statusText = document.getElementById('ml_status_text');
+                        const versionEl = document.getElementById('ml_version_select');
                         
                         window.mlEnabled = toggle.checked;
+                        window.mlVersion = versionEl ? versionEl.value : 'v1';
                         
                         if (window.mlEnabled) {
                             statusDiv.style.display = 'block';
-                            statusText.innerHTML = '⏳ 正在应用ML校正...';
+                            statusText.innerHTML = '⏳ 正在应用 ' + window.mlVersion.toUpperCase() + ' 校正...';
                             
                             // 隐藏天况图标选项
                             const weatherIconsCheckbox = document.getElementById('weather_icons_checkbox');
@@ -608,7 +627,8 @@
                                     },
                                     body: JSON.stringify({
                                         data: forecastData,
-                                        issue_time: data.issue_time_estimated || null
+                                        issue_time: data.issue_time_estimated || null,
+                                        ml_version: window.mlVersion || 'v1'
                                     })
                                 });
                                 
@@ -617,7 +637,7 @@
                                 if (result.success && result.models_loaded) {
                                     // 保存校正后的数据
                                     window.mlCorrectedData = result.corrected_data;
-                                    statusText.innerHTML = '✅ ML校正已启用 - 温度/湿度/风速/降水已校正';
+                                    statusText.innerHTML = (result.ml_version_used || window.mlVersion || 'v1').toUpperCase() + ' 已启用 - 温度/湿度/风速/降水已校正';
                                     statusDiv.style.background = '#e8f5e9';
                                     statusDiv.style.color = '#2e7d32';
                                 } else {
@@ -1211,8 +1231,9 @@
                                 const forecastData = [];
                                 const buildLen = Math.min(timestamps.length, temps.length, rhums.length, wspds.length);
                                 const issueTime = baseData.issue_time_estimated || null;
+                                const version = window.mlVersion || 'v1';
                                 const cached = window.mlCorrectedMultiData;
-                                if (cached && cached.baseModelKey === baseModelKey && cached.buildLen === buildLen && cached.issueTime === issueTime) {
+                                if (cached && cached.baseModelKey === baseModelKey && cached.buildLen === buildLen && cached.issueTime === issueTime && cached.mlVersion === version) {
                                     mlCorrectedData = cached.correctedData;
                                 } else {
                                     for (let i = 0; i < buildLen; i++) {
@@ -1231,14 +1252,15 @@
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
                                             data: forecastData,
-                                            issue_time: baseData.issue_time_estimated || null
+                                            issue_time: baseData.issue_time_estimated || null,
+                                            ml_version: version
                                         })
                                     });
                                     
                                     const result = await response.json();
                                     if (result.success && result.models_loaded) {
                                         mlCorrectedData = result.corrected_data;
-                                        window.mlCorrectedMultiData = { baseModelKey, buildLen, issueTime, correctedData: mlCorrectedData };
+                                        window.mlCorrectedMultiData = { baseModelKey, buildLen, issueTime, mlVersion: version, correctedData: mlCorrectedData };
                                         if (shouldDebug) {
                                             console.log('[updateModelComparison] corrected_data sample:', mlCorrectedData?.slice?.(0, 2));
                                         }

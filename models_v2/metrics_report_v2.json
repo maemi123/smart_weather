@@ -1,0 +1,937 @@
+{
+  "version": "v2",
+  "model_family": "sklearn_gradient_boosting",
+  "generated_at": "2026-04-16 18:25:29",
+  "split_policy": "issue_time_split_with_target_time_embargo",
+  "feature_columns": [
+    "forecast_temp",
+    "forecast_rhum",
+    "forecast_wspd",
+    "forecast_pres",
+    "forecast_prcp",
+    "hour",
+    "month",
+    "day_of_week",
+    "is_day",
+    "is_weekend",
+    "lead_hours",
+    "lead_category",
+    "hour_sin",
+    "hour_cos",
+    "issue_cycle_code",
+    "season_code",
+    "lead_cycle_interaction",
+    "temp_change_3h",
+    "rhum_change_3h",
+    "wspd_change_3h",
+    "prcp_sum_3h",
+    "temp_change_6h",
+    "rhum_change_6h",
+    "wspd_change_6h",
+    "prcp_sum_6h"
+  ],
+  "regression": {
+    "temp": {
+      "cross_validation": [
+        {
+          "samples": 2275,
+          "original_mae": 1.6068571428571428,
+          "corrected_mae": 1.8035477455466389,
+          "original_rmse": 2.0674218164257065,
+          "corrected_rmse": 2.3092727584189325,
+          "original_bias": -1.2326153846153844,
+          "corrected_bias": -1.5536158903475223,
+          "improvement_pct": -12.240702514460109,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 315,
+              "original_mae": 1.2552380952380953,
+              "corrected_mae": 1.3125251878399764,
+              "improvement_pct": -4.563842733837268
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 336,
+              "original_mae": 1.4404761904761905,
+              "corrected_mae": 1.4338116972256354,
+              "improvement_pct": 0.46265903557572385
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 336,
+              "original_mae": 1.5050595238095237,
+              "corrected_mae": 1.7872506297683826,
+              "improvement_pct": -18.74949804274799
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 672,
+              "original_mae": 1.5040178571428573,
+              "corrected_mae": 1.6670322302914302,
+              "improvement_pct": -10.838592931220045
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 609,
+              "original_mae": 2.051231527093596,
+              "corrected_mae": 2.4335626691969,
+              "improvement_pct": -18.639102268724955
+            }
+          ],
+          "name": "fold1",
+          "train_rows": 7508,
+          "eval_rows": 2275,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-14 08:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 8447,
+            "train_rows_after_embargo": 7508,
+            "eval_rows": 2275
+          }
+        },
+        {
+          "samples": 1950,
+          "original_mae": 2.1955384615384617,
+          "corrected_mae": 2.2799250289737105,
+          "original_rmse": 2.8636994184052136,
+          "corrected_rmse": 3.132522601957475,
+          "original_bias": -1.862923076923077,
+          "corrected_bias": -2.0838639646961106,
+          "improvement_pct": -3.8435476724064013,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 270,
+              "original_mae": 1.5240740740740741,
+              "corrected_mae": 1.2167500915355063,
+              "improvement_pct": 20.164635549310646
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 288,
+              "original_mae": 1.4114583333333333,
+              "corrected_mae": 1.2265711227476486,
+              "improvement_pct": 13.099020085775448
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 288,
+              "original_mae": 1.9791666666666667,
+              "corrected_mae": 1.7606203073557056,
+              "improvement_pct": 11.042342365185403
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 576,
+              "original_mae": 2.3447916666666666,
+              "corrected_mae": 2.5294542059632295,
+              "improvement_pct": -7.8754348167348
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 522,
+              "original_mae": 2.935823754789272,
+              "corrected_mae": 3.4415173366452785,
+              "improvement_pct": -17.22492983548681
+            }
+          ],
+          "name": "fold2",
+          "train_rows": 9671,
+          "eval_rows": 1950,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-21 08:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 10722,
+            "train_rows_after_embargo": 9671,
+            "eval_rows": 1950
+          }
+        },
+        {
+          "samples": 1790,
+          "original_mae": 1.8436312849162013,
+          "corrected_mae": 2.3276246784769348,
+          "original_rmse": 2.4395198263675217,
+          "corrected_rmse": 3.0878476890991995,
+          "original_bias": -1.0783798882681563,
+          "corrected_bias": -1.6309444692317583,
+          "improvement_pct": -26.2521794634621,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 246,
+              "original_mae": 1.2032520325203253,
+              "corrected_mae": 1.4924646816026534,
+              "improvement_pct": -24.035916106166457
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 264,
+              "original_mae": 1.243939393939394,
+              "corrected_mae": 1.2812002570936836,
+              "improvement_pct": -2.9953921658746876
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 264,
+              "original_mae": 1.215530303030303,
+              "corrected_mae": 1.881715052933231,
+              "improvement_pct": -54.806099711552804
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 528,
+              "original_mae": 1.5859848484848487,
+              "corrected_mae": 2.4863146863154015,
+              "improvement_pct": -56.76787131293669
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 483,
+              "original_mae": 3.127743271221532,
+              "corrected_mae": 3.4083752141373207,
+              "improvement_pct": -8.972345828313093
+            }
+          ],
+          "name": "fold3",
+          "train_rows": 12300,
+          "eval_rows": 1790,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-30 00:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 12672,
+            "train_rows_after_embargo": 12300,
+            "eval_rows": 1790
+          }
+        }
+      ],
+      "cross_validation_summary": {
+        "completed_folds": 3,
+        "original_mae_mean": 1.8820089631039352,
+        "corrected_mae_mean": 2.137032484332428,
+        "improvement_pct_mean": -14.112143216776204,
+        "original_rmse_mean": 2.456880353732814,
+        "corrected_rmse_mean": 2.843214349825202
+      },
+      "final_test": {
+        "samples": 1290,
+        "original_mae": 2.354651162790698,
+        "corrected_mae": 2.2195843599582314,
+        "original_rmse": 3.1073319146668217,
+        "corrected_rmse": 2.8539697387585363,
+        "original_bias": -0.9613178294573643,
+        "corrected_bias": -0.9951116109667668,
+        "improvement_pct": 5.736170391897338,
+        "lead_buckets": [
+          {
+            "lead_time": "0-24h",
+            "samples": 186,
+            "original_mae": 2.1188172043010756,
+            "corrected_mae": 1.9487614744477813,
+            "improvement_pct": 8.02597456298217
+          },
+          {
+            "lead_time": "24-48h",
+            "samples": 192,
+            "original_mae": 1.9911458333333332,
+            "corrected_mae": 1.9379927972076099,
+            "improvement_pct": 2.669469771420056
+          },
+          {
+            "lead_time": "48-72h",
+            "samples": 192,
+            "original_mae": 2.30625,
+            "corrected_mae": 2.603925315015085,
+            "improvement_pct": -12.90733073236141
+          },
+          {
+            "lead_time": "72-120h",
+            "samples": 384,
+            "original_mae": 2.790625,
+            "corrected_mae": 2.7147921856562256,
+            "improvement_pct": 2.7174132799560784
+          },
+          {
+            "lead_time": "120-168h",
+            "samples": 330,
+            "original_mae": 2.241212121212121,
+            "corrected_mae": 1.762774086617992,
+            "improvement_pct": 21.347289266639084
+          }
+        ],
+        "train_rows": 13440,
+        "test_rows": 1290,
+        "split_audit": {
+          "policy": "issue_time_split_with_target_time_embargo",
+          "eval_min_target_time": "2026-04-04 08:00:00",
+          "target_overlap_count": 0,
+          "target_overlap_ratio_eval": 0.0,
+          "embargo_applied": true,
+          "train_rows_before_embargo": 14462,
+          "train_rows_after_embargo": 13440,
+          "eval_rows": 1290
+        }
+      }
+    },
+    "rhum": {
+      "cross_validation": [
+        {
+          "samples": 2275,
+          "original_mae": 8.502857142857144,
+          "corrected_mae": 7.941468379772616,
+          "original_rmse": 11.43378452531919,
+          "corrected_rmse": 10.69467035611049,
+          "original_bias": 4.130989010989011,
+          "corrected_bias": 3.0439507604307874,
+          "improvement_pct": 6.602354404555929,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 315,
+              "original_mae": 5.050793650793651,
+              "corrected_mae": 5.265031651464006,
+              "improvement_pct": -4.241670032128341
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 336,
+              "original_mae": 6.1726190476190474,
+              "corrected_mae": 5.691442027638132,
+              "improvement_pct": 7.795346128909718
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 336,
+              "original_mae": 7.104166666666667,
+              "corrected_mae": 6.988743202928886,
+              "improvement_pct": 1.624729108332406
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 672,
+              "original_mae": 8.699404761904763,
+              "corrected_mae": 7.9068677032358785,
+              "improvement_pct": 9.11024467029576
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 609,
+              "original_mae": 12.177339901477833,
+              "corrected_mae": 11.185550690602517,
+              "improvement_pct": 8.144547322317523
+            }
+          ],
+          "name": "fold1",
+          "train_rows": 7508,
+          "eval_rows": 2275,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-14 08:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 8447,
+            "train_rows_after_embargo": 7508,
+            "eval_rows": 2275
+          }
+        },
+        {
+          "samples": 1950,
+          "original_mae": 9.868717948717949,
+          "corrected_mae": 9.3051945736678,
+          "original_rmse": 12.609520212918492,
+          "corrected_rmse": 12.088970078220555,
+          "original_bias": 6.584615384615384,
+          "corrected_bias": 6.479896568682904,
+          "improvement_pct": 5.710198406504837,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 270,
+              "original_mae": 6.851851851851852,
+              "corrected_mae": 6.737963058186085,
+              "improvement_pct": 1.6621607724193035
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 288,
+              "original_mae": 6.107638888888889,
+              "corrected_mae": 6.204868628731639,
+              "improvement_pct": -1.5919366159586013
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 288,
+              "original_mae": 9.784722222222221,
+              "corrected_mae": 9.016641417670106,
+              "improvement_pct": 7.849796725018067
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 576,
+              "original_mae": 11.70138888888889,
+              "corrected_mae": 11.326647417486491,
+              "improvement_pct": 3.2025383906199014
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 522,
+              "original_mae": 11.526819923371647,
+              "corrected_mae": 10.297552247887463,
+              "improvement_pct": 10.664412940048932
+            }
+          ],
+          "name": "fold2",
+          "train_rows": 9671,
+          "eval_rows": 1950,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-21 08:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 10722,
+            "train_rows_after_embargo": 9671,
+            "eval_rows": 1950
+          }
+        },
+        {
+          "samples": 1790,
+          "original_mae": 11.14804469273743,
+          "corrected_mae": 11.233284063523508,
+          "original_rmse": 15.072469260507336,
+          "corrected_rmse": 14.27308610073041,
+          "original_bias": 5.588268156424581,
+          "corrected_bias": 3.4456145768311366,
+          "improvement_pct": -0.7646127472166266,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 246,
+              "original_mae": 6.882113821138211,
+              "corrected_mae": 6.240950238066698,
+              "improvement_pct": 9.316375749296652
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 264,
+              "original_mae": 7.909090909090909,
+              "corrected_mae": 6.94945601685737,
+              "improvement_pct": 12.133314729389573
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 264,
+              "original_mae": 8.083333333333334,
+              "corrected_mae": 8.856307291735613,
+              "improvement_pct": -9.562564433842622
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 528,
+              "original_mae": 9.774621212121213,
+              "corrected_mae": 11.933295601190231,
+              "improvement_pct": -22.084481252246494
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 483,
+              "original_mae": 18.320910973084885,
+              "corrected_mae": 16.724377318766404,
+              "improvement_pct": 8.714270030916786
+            }
+          ],
+          "name": "fold3",
+          "train_rows": 12300,
+          "eval_rows": 1790,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-30 00:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 12672,
+            "train_rows_after_embargo": 12300,
+            "eval_rows": 1790
+          }
+        }
+      ],
+      "cross_validation_summary": {
+        "completed_folds": 3,
+        "original_mae_mean": 9.839873261437509,
+        "corrected_mae_mean": 9.493315672321309,
+        "improvement_pct_mean": 3.849313354614713,
+        "original_rmse_mean": 13.038591332915004,
+        "corrected_rmse_mean": 12.35224217835382
+      },
+      "final_test": {
+        "samples": 1290,
+        "original_mae": 9.851162790697675,
+        "corrected_mae": 10.076184806899034,
+        "original_rmse": 13.341083019156692,
+        "corrected_rmse": 13.507958972832895,
+        "original_bias": 7.068217054263566,
+        "corrected_bias": 3.359775770885377,
+        "improvement_pct": -2.2842178226294747,
+        "lead_buckets": [
+          {
+            "lead_time": "0-24h",
+            "samples": 186,
+            "original_mae": 10.338709677419354,
+            "corrected_mae": 11.22922780213118,
+            "improvement_pct": -8.613435839646375
+          },
+          {
+            "lead_time": "24-48h",
+            "samples": 192,
+            "original_mae": 10.609375,
+            "corrected_mae": 11.246112334366847,
+            "improvement_pct": -6.001647923339944
+          },
+          {
+            "lead_time": "48-72h",
+            "samples": 192,
+            "original_mae": 12.572916666666666,
+            "corrected_mae": 13.480243486116477,
+            "improvement_pct": -7.216518199435113
+          },
+          {
+            "lead_time": "72-120h",
+            "samples": 384,
+            "original_mae": 10.080729166666666,
+            "corrected_mae": 10.867135326284425,
+            "improvement_pct": -7.801084094374044
+          },
+          {
+            "lead_time": "120-168h",
+            "samples": 330,
+            "original_mae": 7.315151515151515,
+            "corrected_mae": 5.907038869166677,
+            "improvement_pct": 19.249261523404996
+          }
+        ],
+        "train_rows": 13440,
+        "test_rows": 1290,
+        "split_audit": {
+          "policy": "issue_time_split_with_target_time_embargo",
+          "eval_min_target_time": "2026-04-04 08:00:00",
+          "target_overlap_count": 0,
+          "target_overlap_ratio_eval": 0.0,
+          "embargo_applied": true,
+          "train_rows_before_embargo": 14462,
+          "train_rows_after_embargo": 13440,
+          "eval_rows": 1290
+        }
+      }
+    },
+    "wspd": {
+      "cross_validation": [
+        {
+          "samples": 2275,
+          "original_mae": 5.341274725274725,
+          "corrected_mae": 2.9418149436108694,
+          "original_rmse": 6.271227161400718,
+          "corrected_rmse": 3.688502824320881,
+          "original_bias": -5.10945054945055,
+          "corrected_bias": 0.7245322077226914,
+          "improvement_pct": 44.922980095176456,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 315,
+              "original_mae": 5.595555555555556,
+              "corrected_mae": 2.5563085303698916,
+              "improvement_pct": 54.31537574795667
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 336,
+              "original_mae": 5.474702380952381,
+              "corrected_mae": 2.638879867430389,
+              "improvement_pct": 51.79866075256262
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 336,
+              "original_mae": 5.1032738095238095,
+              "corrected_mae": 2.9818712463676773,
+              "improvement_pct": 41.569444288823725
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 672,
+              "original_mae": 5.06875,
+              "corrected_mae": 3.195103001913754,
+              "improvement_pct": 36.96467567124529
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 609,
+              "original_mae": 5.573563218390804,
+              "corrected_mae": 3.0059435721908785,
+              "improvement_pct": 46.06783031952847
+            }
+          ],
+          "name": "fold1",
+          "train_rows": 7508,
+          "eval_rows": 2275,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-14 08:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 8447,
+            "train_rows_after_embargo": 7508,
+            "eval_rows": 2275
+          }
+        },
+        {
+          "samples": 1950,
+          "original_mae": 5.291897435897436,
+          "corrected_mae": 4.025468478175474,
+          "original_rmse": 6.501452303238258,
+          "corrected_rmse": 5.205964707175056,
+          "original_bias": -4.065948717948718,
+          "corrected_bias": 2.41272913685212,
+          "improvement_pct": 23.931472086574786,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 270,
+              "original_mae": 5.094814814814814,
+              "corrected_mae": 3.2054936234043687,
+              "improvement_pct": 37.08321617336583
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 288,
+              "original_mae": 5.085069444444445,
+              "corrected_mae": 3.233658845285674,
+              "improvement_pct": 36.40875742968426
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 288,
+              "original_mae": 5.384027777777778,
+              "corrected_mae": 3.004095397607281,
+              "improvement_pct": 44.20356800523044
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 576,
+              "original_mae": 5.2340277777777775,
+              "corrected_mae": 3.7935582458458876,
+              "improvement_pct": 27.521243544937263
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 522,
+              "original_mae": 5.532183908045977,
+              "corrected_mae": 5.719553814361315,
+              "improvement_pct": -3.386906679707955
+            }
+          ],
+          "name": "fold2",
+          "train_rows": 9671,
+          "eval_rows": 1950,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-21 08:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 10722,
+            "train_rows_after_embargo": 9671,
+            "eval_rows": 1950
+          }
+        },
+        {
+          "samples": 1790,
+          "original_mae": 3.668659217877095,
+          "corrected_mae": 7.679125398596779,
+          "original_rmse": 5.2182773972273075,
+          "corrected_rmse": 8.117713231501629,
+          "original_bias": 2.9484357541899446,
+          "corrected_bias": 7.545185705860844,
+          "improvement_pct": -109.31694503476884,
+          "lead_buckets": [
+            {
+              "lead_time": "0-24h",
+              "samples": 246,
+              "original_mae": 3.8987804878048777,
+              "corrected_mae": 7.289663854417681,
+              "improvement_pct": -86.97292338512663
+            },
+            {
+              "lead_time": "24-48h",
+              "samples": 264,
+              "original_mae": 3.209469696969697,
+              "corrected_mae": 7.429408690077547,
+              "improvement_pct": -131.4839955364655
+            },
+            {
+              "lead_time": "48-72h",
+              "samples": 264,
+              "original_mae": 2.993939393939394,
+              "corrected_mae": 7.603984895157997,
+              "improvement_pct": -153.9792525710667
+            },
+            {
+              "lead_time": "72-120h",
+              "samples": 528,
+              "original_mae": 3.351136363636364,
+              "corrected_mae": 8.007200969944433,
+              "improvement_pct": -138.93987295866737
+            },
+            {
+              "lead_time": "120-168h",
+              "samples": 483,
+              "original_mae": 4.5252587991718425,
+              "corrected_mae": 7.711664020572472,
+              "improvement_pct": -70.41376776028294
+            }
+          ],
+          "name": "fold3",
+          "train_rows": 12300,
+          "eval_rows": 1790,
+          "split_audit": {
+            "policy": "issue_time_split_with_target_time_embargo",
+            "eval_min_target_time": "2026-03-30 00:00:00",
+            "target_overlap_count": 0,
+            "target_overlap_ratio_eval": 0.0,
+            "embargo_applied": true,
+            "train_rows_before_embargo": 12672,
+            "train_rows_after_embargo": 12300,
+            "eval_rows": 1790
+          }
+        }
+      ],
+      "cross_validation_summary": {
+        "completed_folds": 3,
+        "original_mae_mean": 4.767277126349753,
+        "corrected_mae_mean": 4.8821362734610405,
+        "improvement_pct_mean": -13.487497617672531,
+        "original_rmse_mean": 5.996985620622095,
+        "corrected_rmse_mean": 5.670726920999189
+      },
+      "final_test": {
+        "samples": 1290,
+        "original_mae": 4.413333333333333,
+        "corrected_mae": 3.0605599481978687,
+        "original_rmse": 6.198421904688897,
+        "corrected_rmse": 3.776703572652588,
+        "original_bias": 1.781550387596899,
+        "corrected_bias": -2.2706804284977893,
+        "improvement_pct": 30.65196491998787,
+        "lead_buckets": [
+          {
+            "lead_time": "0-24h",
+            "samples": 186,
+            "original_mae": 4.372043010752688,
+            "corrected_mae": 1.8554620681175025,
+            "improvement_pct": 57.56075446755343
+          },
+          {
+            "lead_time": "24-48h",
+            "samples": 192,
+            "original_mae": 4.996875,
+            "corrected_mae": 2.5808027892616234,
+            "improvement_pct": 48.35166400477052
+          },
+          {
+            "lead_time": "48-72h",
+            "samples": 192,
+            "original_mae": 4.1234375000000005,
+            "corrected_mae": 2.789587139549029,
+            "improvement_pct": 32.34801935159612
+          },
+          {
+            "lead_time": "72-120h",
+            "samples": 384,
+            "original_mae": 4.716927083333332,
+            "corrected_mae": 2.8440665694211185,
+            "improvement_pct": 39.70509784918514
+          },
+          {
+            "lead_time": "120-168h",
+            "samples": 330,
+            "original_mae": 3.93,
+            "corrected_mae": 4.467330239086745,
+            "improvement_pct": -13.67252516760164
+          }
+        ],
+        "train_rows": 13440,
+        "test_rows": 1290,
+        "split_audit": {
+          "policy": "issue_time_split_with_target_time_embargo",
+          "eval_min_target_time": "2026-04-04 08:00:00",
+          "target_overlap_count": 0,
+          "target_overlap_ratio_eval": 0.0,
+          "embargo_applied": true,
+          "train_rows_before_embargo": 14462,
+          "train_rows_after_embargo": 13440,
+          "eval_rows": 1290
+        }
+      }
+    }
+  },
+  "precipitation": {
+    "cross_validation": [
+      {
+        "samples": 2275,
+        "rainy_samples": 795,
+        "classification_raw": {
+          "accuracy": 0.6953846153846154,
+          "precision": 0.5894736842105263,
+          "recall": 0.4226415094339623,
+          "f1": 0.49230769230769234
+        },
+        "classification_corrected": {
+          "accuracy": 0.5503296703296703,
+          "precision": 0.29120879120879123,
+          "recall": 0.2,
+          "f1": 0.2371364653243848
+        },
+        "rainy_mae_raw": 0.5578616352201258,
+        "rainy_mae_corrected": 0.525174488046245,
+        "rainy_improvement_pct": 5.859364600503994,
+        "overall_mae_raw": 0.2719120879120879,
+        "overall_mae_corrected": 0.2856980646617115,
+        "overall_improvement_pct": -5.070012464499472,
+        "name": "fold1",
+        "train_rows": 7508,
+        "eval_rows": 2275,
+        "split_audit": {
+          "policy": "issue_time_split_with_target_time_embargo",
+          "eval_min_target_time": "2026-03-14 08:00:00",
+          "target_overlap_count": 0,
+          "target_overlap_ratio_eval": 0.0,
+          "embargo_applied": true,
+          "train_rows_before_embargo": 8447,
+          "train_rows_after_embargo": 7508,
+          "eval_rows": 2275
+        }
+      },
+      {
+        "samples": 1950,
+        "rainy_samples": 529,
+        "classification_raw": {
+          "accuracy": 0.7774358974358975,
+          "precision": 0.6353276353276354,
+          "recall": 0.4215500945179584,
+          "f1": 0.5068181818181818
+        },
+        "classification_corrected": {
+          "accuracy": 0.5097435897435898,
+          "precision": 0.30176415970287834,
+          "recall": 0.6143667296786389,
+          "f1": 0.40473225404732255
+        },
+        "rainy_mae_raw": 0.8255198487712666,
+        "rainy_mae_corrected": 0.7443793572207753,
+        "rainy_improvement_pct": 9.829017639159582,
+        "overall_mae_raw": 0.26379487179487177,
+        "overall_mae_corrected": 0.4220998536393913,
+        "overall_improvement_pct": -60.01063658569461,
+        "name": "fold2",
+        "train_rows": 9671,
+        "eval_rows": 1950,
+        "split_audit": {
+          "policy": "issue_time_split_with_target_time_embargo",
+          "eval_min_target_time": "2026-03-21 08:00:00",
+          "target_overlap_count": 0,
+          "target_overlap_ratio_eval": 0.0,
+          "embargo_applied": true,
+          "train_rows_before_embargo": 10722,
+          "train_rows_after_embargo": 9671,
+          "eval_rows": 1950
+        }
+      },
+      {
+        "samples": 1790,
+        "rainy_samples": 435,
+        "classification_raw": {
+          "accuracy": 0.8519553072625698,
+          "precision": 0.775974025974026,
+          "recall": 0.5494252873563218,
+          "f1": 0.6433378196500673
+        },
+        "classification_corrected": {
+          "accuracy": 0.8201117318435754,
+          "precision": 0.6076190476190476,
+          "recall": 0.7333333333333333,
+          "f1": 0.6645833333333333
+        },
+        "rainy_mae_raw": 1.0397701149425287,
+        "rainy_mae_corrected": 0.6830396071006322,
+        "rainy_improvement_pct": 34.3085940551017,
+        "overall_mae_raw": 0.27960893854748603,
+        "overall_mae_corrected": 0.21582871079635224,
+        "overall_improvement_pct": 22.810511023882015,
+        "name": "fold3",
+        "train_rows": 12300,
+        "eval_rows": 1790,
+        "split_audit": {
+          "policy": "issue_time_split_with_target_time_embargo",
+          "eval_min_target_time": "2026-03-30 00:00:00",
+          "target_overlap_count": 0,
+          "target_overlap_ratio_eval": 0.0,
+          "embargo_applied": true,
+          "train_rows_before_embargo": 12672,
+          "train_rows_after_embargo": 12300,
+          "eval_rows": 1790
+        }
+      }
+    ],
+    "cross_validation_summary": {
+      "completed_folds": 3,
+      "overall_mae_raw_mean": 0.27177196608481524,
+      "overall_mae_corrected_mean": 0.307875543032485,
+      "overall_improvement_pct_mean": -14.09004600877069
+    },
+    "final_test": {
+      "samples": 1290,
+      "rainy_samples": 427,
+      "classification_raw": {
+        "accuracy": 0.7542635658914729,
+        "precision": 0.6751592356687898,
+        "recall": 0.4964871194379391,
+        "f1": 0.5721997300944669
+      },
+      "classification_corrected": {
+        "accuracy": 0.6581395348837209,
+        "precision": 0.48722627737226276,
+        "recall": 0.6252927400468384,
+        "f1": 0.5476923076923077
+      },
+      "rainy_mae_raw": 1.0243559718969555,
+      "rainy_mae_corrected": 0.6822229992364616,
+      "rainy_improvement_pct": 33.39981237449266,
+      "overall_mae_raw": 0.414031007751938,
+      "overall_mae_corrected": 0.45239771555193803,
+      "overall_improvement_pct": -9.26662667328216,
+      "train_rows": 13440,
+      "test_rows": 1290,
+      "split_audit": {
+        "policy": "issue_time_split_with_target_time_embargo",
+        "eval_min_target_time": "2026-04-04 08:00:00",
+        "target_overlap_count": 0,
+        "target_overlap_ratio_eval": 0.0,
+        "embargo_applied": true,
+        "train_rows_before_embargo": 14462,
+        "train_rows_after_embargo": 13440,
+        "eval_rows": 1290
+      }
+    }
+  }
+}
