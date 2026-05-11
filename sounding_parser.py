@@ -11,6 +11,19 @@ class SoundingDataParser:
 
     def __init__(self):
         self.base_url = "https://weather.uwyo.edu/wsgi/sounding"
+        self.source_page_url = "https://weather.uwyo.edu/upperair/sounding.shtml"
+
+    def _format_fetch_error(self, status_code: Optional[int] = None, raw_error: Optional[str] = None) -> str:
+        if status_code == 403:
+            return (
+                "上游探空数据源当前返回 403 Forbidden。"
+                "当前网络环境可能无法访问怀俄明大学探空接口，请尝试开启代理/VPN（梯子）后再刷新。"
+            )
+        if status_code is not None:
+            return f"上游探空数据源访问失败（HTTP {status_code}）。请稍后重试。"
+        if raw_error:
+            return f"上游探空数据源访问异常：{raw_error}"
+        return "上游探空数据源访问失败，请稍后重试。"
 
     def fetch_sounding_data(self,
                             station_id: str = "58457",
@@ -48,9 +61,20 @@ class SoundingDataParser:
                     if has_station and has_table:
                         return {"success": True, "raw_data": content, "params": params, "time": time_val}
                     return {"success": False, "error": "未找到有效探空层结表", "raw_data": content}
-                return {"success": False, "error": f"HTTP {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": self._format_fetch_error(status_code=response.status_code),
+                    "status_code": response.status_code,
+                    "raw_error": f"HTTP {response.status_code}",
+                    "source_url": self.source_page_url,
+                }
             except Exception as e:
-                return {"success": False, "error": str(e)}
+                return {
+                    "success": False,
+                    "error": self._format_fetch_error(raw_error=str(e)),
+                    "raw_error": str(e),
+                    "source_url": self.source_page_url,
+                }
 
         candidate_times = [target_time]
         fallback_time = target_time - timedelta(hours=12)

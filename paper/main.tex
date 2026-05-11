@@ -1,0 +1,104 @@
+\documentclass[12pt,a4paper]{ctexart}
+
+% Packages
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{float}
+
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+\graphicspath{{figures/}}
+
+% Metadata
+\title{基于多源数据融合的智能天气分析系统设计与实现}
+\author{徐毅成}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+随着气象信息服务从原来的单一预报展示发展到现在的综合分析、智能辅助和行业应用，
+用户对天气平台的要求也由原来的只关心温度、降水等基本信息，发展为需要系统提供更加细致的预报对比、
+更加专业的大气诊断、更加接近实际场景的决策支持等。本文根据以上需求设计出一套基于Flask的智能气象信息服务系统。
+系统主要面向杭州地区，以多模式预报分析为主线，集成了数值预报展示、探空分析、历史气候分析、
+机器学习误差校正、农业气象服务等功能模块，形成了一种综合性、实用性较强的Web应用平台。
+
+本文用 Flask 构建了后端服务框架，并用 Pandas、NumPy 等工具对气象数据进行处理。
+系统在预报分析模块里把欧洲中期天气预报中心全球模式（ECMWF）、美国全球预报系统（GFS）、
+德国气象局全球模式（ICON）等模式预报结果融合起来，给出 72 小时精细化预报及多模式对比显示；
+在探空分析模块里完成了怀俄明大学探空资料抓取、层结解析、稳定度参数算出并做图；
+历史气候模块可以做年度气候统计、趋势分析，基于 EW 指数的代表性极端事件挑选；
+机器学习误差校正模块把 ECMWF/Open-Meteo 的预报样本做了站点口径统一、时次统一、模型重训；
+农业气象模块创建了作物知识库、积温计算、农事建议等模块，表现出系统的行业拓展能力。
+
+本文主要论述了系统的需要分析、总体架构设计以及重要模块的实现方法，
+并通过页面功能、接口流程、模型评价结果等对系统进行测试分析。
+结果表明，该系统可以较好的完成综合气象信息展示和分析的任务，
+在预报分析的准确性、完整性以及应用的扩展性上都有一定的实践意义。
+
+\textbf{关键词：}多源数据；智能气象服务；多模式预报；探空分析；历史气候；机器学习误差校正；农业应用
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% Include all chapters
+\input{sections/01_intro}
+\input{sections/02_tech}
+\input{sections/03_requirements}
+\input{sections/04_design}
+\input{sections/05_modules}
+\input{sections/06_testing}
+\input{sections/07_conclusion}
+
+% --- 参考文献 ---
+\section*{参考文献}
+
+\begin{enumerate}
+\item Grinberg M. Flask Web Development: Developing Web Applications with Python[M]. 2nd ed. Sebastopol: O'Reilly Media, 2018.
+\item Harris C R, Millman K J, van der Walt S J, et al. Array programming with NumPy[J]. Nature, 2020, 585(7825): 357-362.
+\item McKinney W. Data Structures for Statistical Computing in Python[C]//Proceedings of the 9th Python in Science Conference. Austin: SciPy, 2010: 56-61.
+\item Hunter J D. Matplotlib: A 2D graphics environment[J]. Computing in Science \& Engineering, 2007, 9(3): 90-95.
+\item May R M, Goebbert K H, Thielen J E, et al. MetPy: A Meteorological Python Library for Data Analysis and Visualization[J]. Bulletin of the American Meteorological Society, 2022, 103(10): E2273-E2284.
+\item Munoz-Sabater J, Dutra E, Agusti-Panareda A, et al. ERA5-Land: A state-of-the-art global reanalysis dataset for land applications[J]. Earth System Science Data, 2021, 13(9): 4349-4383.
+\item Zippenfenig P. Open-Meteo.com Weather API[CP/OL]. Zenodo, 2024. https://zenodo.org/records/14582479.
+\item University of Wyoming. Upper Air Radiosonde Archive[EB/OL]. https://weather.uwyo.edu/upperair/sounding.shtml.
+\item Glahn H R, Lowry D A. The use of model output statistics (MOS) in objective weather forecasting[J]. Journal of Applied Meteorology, 1972, 11(8): 1203-1211.
+\item Breiman L. Random forests[J]. Machine Learning, 2001, 45(1): 5-32.
+\item Pedregosa F, Varoquaux G, Gramfort A, et al. Scikit-learn: Machine learning in Python[J]. Journal of Machine Learning Research, 2011, 12: 2825-2830.
+\item Ben Bouallegue Z, Clare M C A, Magnusson L, et al. The rise of data-driven weather forecasting[J]. Bulletin of the American Meteorological Society, 2024, 105(6): E864-E883.
+\item 唐卫亚, 等. 天气学分析基础[M]. 北京: 气象出版社, 2016.
+\item 肖金香, 叶清, 吴仁烨. 农业气象学[M]. 第3版. 北京: 高等教育出版社, 2023.
+\item 王春乙, 张继权, 霍治国, 等. 农业气象灾害风险评估研究进展与展望[J]. 气象学报, 2015(1): 1-19.
+\item 中国气象局. 农业气象灾害风险区划技术导则: QX/T 527-2019[S]. 北京: 气象出版社, 2019.
+\item 王春乙. 重大农业气象灾害研究进展[M]. 北京: 气象出版社, 2007.
+\item 王春乙, 张雪芬, 赵艳霞. 农业气象灾害影响评估与风险评价[M]. 北京: 气象出版社, 2010.
+\item 王春乙, 王石立, 霍治国. 近十余年来我国农业气象灾害研究进展[J]. 气象学报, 2005, 63(5): 659-668.
+\item 李俊, 杜钧, 刘羽. 北京"7·21"特大暴雨不同集合预报方案的对比试验[J]. 气象学报, 2015, 73(1): 50-71.
+\end{enumerate}
+
+% --- 致谢 ---
+\section*{致谢}
+
+本论文及相关系统全部由我独立设计、开发与撰写。
+
+首先感谢大学四年里教过我的老师。正是你们在课程教学、实验指导、日常答疑中所传授给我的专业知识以及工程思维，
+才使我在完成本课题的过程中打下了良好的基础。
+
+感谢杭州地区气象开放平台、Open-Meteo、怀俄明大学探空数据库等提供公开的气象数据。
+缺少这些高质量、容易获得的真实数据，本系统多模式预报、探空分析、历史气候模块就无法运行。
+
+系统开发、论文写作过程中遇到很多意料之外的技术问题，数值预报数据时次对齐、机器学习校正训练推理口径统一。
+最终这些困难都会被一一克服，靠的是不断的查阅官方文档、反复地调试代码、不轻易放弃。
+
+最后要感谢我的家人和朋友，在我遇到瓶颈的时候给予我理解、鼓励和默默的支持，使我能安心地完成学业和本论文。
+
+由于本人水平有限，论文中难免有不足之处，希望各位评阅老师、答辩专家提出宝贵意见。
+
+\end{document}

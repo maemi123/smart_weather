@@ -366,4 +366,68 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化：自动加载最新数据
     refreshAllData();
+    function formatUpperairError(prefix, message) {
+        const text = message || '未知错误';
+        return `${prefix}：${text}`;
+    }
+
+    loadPlot = function() {
+        showLoading(true);
+
+        let url = `/upperair/plot/${currentPlotType}`;
+        if (currentDate) {
+            url += `?date=${encodeURIComponent(currentDate)}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    plotImage.src = data.url + '?t=' + new Date().getTime();
+                    plotImage.classList.remove('d-none');
+                    plotPlaceholder.classList.add('d-none');
+                } else {
+                    alert(formatUpperairError('获取图表失败', data.error));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(formatUpperairError('获取图表失败', '网络请求异常，请检查网络连接后重试。'));
+            })
+            .finally(() => showLoading(false));
+    };
+
+    loadDataAndAnalysis = function() {
+        document.getElementById('aiAnalysisContent').innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="spinner-grow text-primary me-2" role="status"></div>
+                <span>正在获取最新数据并生成分析...</span>
+            </div>
+        `;
+
+        let url = '/upperair/data';
+        if (currentDate) {
+            url += `?date=${encodeURIComponent(currentDate)}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    updateUI(result.data);
+                } else {
+                    document.getElementById('aiAnalysisContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            ${formatUpperairError('获取数据失败', result.error)}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('aiAnalysisContent').innerHTML = `
+                    <div class="alert alert-danger">${formatUpperairError('获取数据失败', '网络请求异常，请检查网络连接后重试。')}</div>
+                `;
+            });
+    };
 });

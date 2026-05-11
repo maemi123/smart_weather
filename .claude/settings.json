@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed 's/.*\\\\\\\\//')",
+      "Bash(sed 's/_[0-9].*//')",
+      "Bash(pip install *)",
+      "Bash(python3 -m pip install python-docx)",
+      "Bash(.venvScriptspython.exe -c ' *)",
+      "Bash(python3 -c ' *)",
+      "Read(//c/Users/maemi/**)",
+      "Bash(python3 -c \"from PIL import Image; import glob; files = glob.glob\\('/d/pythonProject/smart_weather/docs/diagrams/images/*.png'\\); [print\\(f'{f}: {Image.open\\(f\\).size}'\\) for f in sorted\\(files\\)]\")",
+      "Bash(python -c \"from PIL import Image; import os; files = [os.path.join\\('/d/pythonProject/smart_weather/docs/diagrams/images', f\\) for f in sorted\\(os.listdir\\('/d/pythonProject/smart_weather/docs/diagrams/images'\\)\\) if f.endswith\\('.png'\\)]; [print\\(f'{f}: {Image.open\\(f\\).size}'\\) for f in files]\")",
+      "Bash(python3 -c \"from PIL import Image; print\\('PIL available'\\)\")",
+      "Bash(python -c \"from PIL import Image; print\\('PIL available'\\)\")",
+      "Bash(python3 -c \"import os; print\\(os.listdir\\('D:/pythonProject/smart_weather/docs/diagrams/images/'\\)\\)\")",
+      "Bash(xelatex --version)",
+      "Bash(latexmk --version)",
+      "Bash(python3 -c \"import pptx; print\\('python-pptx OK:', pptx.__version__\\)\")",
+      "Bash(where xelatex *)",
+      "Bash(where pdflatex *)",
+      "Bash(where miktex *)",
+      "Read(//c/Program Files/**)",
+      "Read(//c//**)",
+      "Bash(cp docs/diagrams/images/*.png paper/figures/)",
+      "Bash(cp docs/images/*.png paper/figures/)",
+      "Bash(python convert_thesis_to_latex.py)",
+      "Skill(paper-slides)",
+      "Skill(paper-slides:*)",
+      "Bash(python generate_pptx.py)"
+    ]
+  }
+}

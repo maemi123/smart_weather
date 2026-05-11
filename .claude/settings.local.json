@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python fix_chars.py)",
+      "Bash(python build_pptx.py)",
+      "Bash(python3 -c \"from pptx import Presentation; prs=Presentation\\('d:/pythonProject/smart_weather/slides/presentation.pptx'\\); print\\(f'Slides: {len\\(prs.slides\\)}'\\); print\\(f'Slide width: {prs.slide_width}, height: {prs.slide_height}'\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(ls \"d:\\\\pythonProject\\\\smart_weather\\\\\")",
+      "Read(//d/pythonProject/**)",
+      "Bash(python3)"
+    ]
+  }
+}

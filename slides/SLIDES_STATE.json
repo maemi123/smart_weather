@@ -1,0 +1,10 @@
+{
+  "phase": 7,
+  "venue": "GENERIC",
+  "talk_type": "oral",
+  "slide_count": 26,
+  "status": "completed",
+  "timestamp": "2026-05-11T23:38:03.699093",
+  "engine": "xelatex",
+  "notes": "PDF compilation skipped - xelatex not installed. PPTX generated via python-pptx."
+}
