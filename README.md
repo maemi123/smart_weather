@@ -16,6 +16,8 @@
   - 历史气候年度分析与趋势分析，支持原始极值和 `EW` 指数代表事件识别
 - `/agro-dashboard`、`/crop/<crop_id>`
   - 农业气象服务，支持作物适宜度、积温进度、风险提醒和农事建议
+- 首页右下角 **智慧天气 Agent** 聊天窗口
+  - 基于 DeepSeek Function Calling 的智能天气助手，支持自然语言查询天气、预报对比、探空分析、历史气候、农业建议等
 
 ## 当前亮点
 
@@ -91,6 +93,20 @@
 
 其中历史积温主要基于 `ERA5-Land`，未来 7 天增量主要基于 `ECMWF` 预报链路。
 
+### 智慧天气 Agent
+
+首页右下角集成了基于 `DeepSeek API` 的智能天气助手，支持 Function Calling 自动调用系统各模块：
+
+- 实时天气查询（温度、湿度、露点、风速、天气现象）
+- 多模式预报对比（ECMWF / GFS / ICON / 集合预报），支持自定义图表
+- 逐小时降水时段分析（"明天几点会下雨？"）
+- 探空分析与强对流风险评估（CAPE、K指数、风切变）
+- 历史气候查询（年度统计、EW极端事件、长期趋势、"历史上的今天"）
+- 农业气象（作物知识库、积温进度、农事建议）
+- 洗车建议等生活指数
+
+Agent 工具集定义在 `agent_functions.py`，共 11 个工具函数，支持多轮对话和动态 matplotlib 图表生成。
+
 ## 技术栈
 
 | 类别 | 技术 |
@@ -149,21 +165,28 @@ python app.py
 
 ```text
 smart_weather/
-├── app.py
-├── advanced_forecast_service.py
-├── history_analyzer.py
-├── sounding_parser.py
-├── sounding_analyzer.py
-├── sounding_plotter.py
-├── ml_correction.py
-├── train_bias_correction.py
-├── crop_database.py
-├── agro_alert_engine.py
-├── templates/
-├── static/
-├── models/
-├── data/
-└── docs/
+├── app.py                         # Flask 主应用
+├── agent_functions.py             # 智慧天气 Agent（11工具+DeepSeek Function Calling）
+├── advanced_forecast_service.py   # 多模式预报服务
+├── history_analyzer.py            # 历史气候分析
+├── sounding_parser.py             # 探空数据解析
+├── sounding_analyzer.py           # 探空稳定度分析
+├── sounding_plotter.py            # 探空图表绘制
+├── ml_correction.py               # ML误差校正 V1（随机森林）
+├── ml_correction_v2.py            # ML误差校正 V2（梯度提升）
+├── train_bias_correction.py       # ML模型训练
+├── crop_database.py               # 作物知识库
+├── agro_calculator.py             # 农业气象计算
+├── agro_alert_engine.py           # 农业预警引擎
+├── farming_ai_adviser.py          # 农事AI顾问
+├── chart_generator.py             # 图表生成
+├── weather_service.py             # 天气服务
+├── templates/                     # Jinja2 模板
+├── static/                        # 静态资源
+├── models/                        # ML模型文件
+├── models_v2/                     # ML模型 V2
+├── data/                          # 气象数据
+└── docs/                          # 文档与论文素材
 ```
 
 ## 文档与论文素材

@@ -20,13 +20,23 @@ ENV/
 .env
 *.env
 
-# 数据文件（根据情况选择）
-# data/
-# *.csv
-# *.json
+# 数据文件（自动生成的CSV体积大，不提交）
+data/hangzhou_openmeteo/
+data/openmeteo/
+data/upperair/
+data/forecasts/
+data/norway/
+data/norway_api/
+data/ecmwf/
+**/HZ_forecast_*.csv
+**/HGH_forecast_*.csv
+sounding_*.csv
 
 # 日志
 *.log
+
+# 临时测试输出
+test_output*.txt
 
 # 敏感文件
 api.txt
@@ -51,3 +61,16 @@ docs/*.docx
 docs/*.pdf
 docs/*.ppt
 docs/*.pptx
+
+# 幻灯片素材
+slides/*.pptx
+slides/*.docx
+slides/figures/
+!slides/figures/school_logo.png
+slides/main.tex
+slides/SLIDE_OUTLINE.md
+
+# 生成的图表
+static/charts/upperair/
+static/charts/*.html
+static/charts/*.png

@@ -25,6 +25,7 @@ from history_analyzer import analyzer
 from ml_correction import apply_ml_correction, get_corrector
 from ml_correction_v2 import apply_ml_correction_v2, get_corrector_v2
 from datetime import datetime, timezone
+from agent_functions import process_chat
 
 # 初始化服务
 forecast_service = AdvancedForecastService()
@@ -114,9 +115,11 @@ def get_ai_analysis(weather_text):
         return f"AI分析暂时不可用。错误信息：{str(e)}"
 
 
+_SESSION_TOKEN = str(int(time.time()))
+
 @app.route('/')
 def index():
-    return render_template('index.html', city="杭州")
+    return render_template('index.html', city="杭州", session_token=_SESSION_TOKEN)
 
 
 def _estimate_dew_point_c(temp_c, humidity_pct):
@@ -1379,6 +1382,22 @@ def generate_ai_analysis():
             "error": str(e),
             "analysis": "抱歉，AI分析服务暂时不可用。请检查网络连接或稍后重试。"
         })
+
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """智慧天气Agent聊天接口"""
+    try:
+        data = request.get_json(silent=True) or {}
+        message = (data.get('message') or '').strip()
+        if not message:
+            return jsonify({"reply": "请问有什么可以帮您的？", "image": None})
+
+        result = process_chat(message)
+        return jsonify(result)
+    except Exception as e:
+        print(f"Chat error: {e}")
+        return jsonify({"reply": "抱歉，聊天服务暂时不可用，请稍后再试。", "image": None}), 500
 
 
 def generate_backup_analysis(analysis_text: str) -> str:
