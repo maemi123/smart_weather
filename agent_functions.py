@@ -70,7 +70,248 @@ MODEL_NAMES = {
     "gem_global": "GEM", "icon_global": "ICON", "ensemble": "集合预报",
 }
 
-SYSTEM_PROMPT = """你是"智慧天气"系统的AI助手，为杭州地区用户提供专业天气服务。
+# ═══════════════════════════════════════════════════════════════
+# Code Interpreter 模式
+# ═══════════════════════════════════════════════════════════════
+
+SYSTEM_PROMPT_CI = """你是"智慧天气"系统的AI助手，为杭州地区用户提供专业天气服务。
+通过调用高层函数获取数据，用print()输出结果，用plt画图。
+
+【高层函数 — 每个一行调用，不要自己写底层代码】
+
+1. 实时天气: w = get_current_weather()
+   # -> {temp, feels_like, humidity, dew_point, wind_speed, weather_desc, pressure, update_time}
+
+2. 预报: fc = get_forecast_summary(days=3, model='ecmwf_ifs')
+   # model可选: ecmwf_ifs(默认), gfs_seamless, icon_global, gem_global, best_match, ensemble
+   # -> {summary, daily: [{date, weekday, temp_min, temp_max, precip_total, main_weather, sw_radiation_mean}]}
+   # sw_radiation_mean = 日均短波辐射(W/m²)，可用于光伏发电效率分析
+
+3. 探空: snd = get_sounding_analysis(date_str='2026-05-16')
+   # 不填date_str取最近时次
+   # -> {parameters: {cape_jkg, k_index, lifted_index, shear_0_6km_ms, ...},
+   #     risk_assessment: {level, description, hazards}}
+
+4. 历史: hist = get_historical_stats(2024)
+   # -> {stats: {avg_temp, total_precip, hot_days, ...}, ew_extremes_top3}
+
+5. 日气候: clim = get_daily_climatology(5, 16)
+   # -> {avg_temp, avg_high, avg_low, record_high, record_low, rain_probability}
+
+6. 积温: gdd = calc_crop_gdd('citrus')
+   # 水稻=rice, 龙井=tea, 柑橘=citrus, 杨梅=bayberry, 小白菜=bokchoy
+   # 小白菜需播种日: calc_crop_gdd('bokchoy', sowing_date='2026-05-01')
+   # -> "柑橘 | 积温: 320/1800°C (18%) | 当前阶段: 生理落果期 | 基温: 12°C"
+
+7. 作物信息: info = get_crop_info('tea')
+   # -> {name, gdd_base, gdd_total, current_stage: {name, temp_min, temp_opt, temp_max}}
+
+8. 洗车建议: adv = get_washing_advice()
+   # -> {verdict, score, reasons}
+
+【代码规范】
+- 只调用上面的高层函数，不要自己import模块手写数据访问
+- 用print()输出结果，用plt画图（不调savefig）
+- 一次run_code完成取数据+分析+画图
+- 回答简洁，不dump原始数据"""
+
+TOOLS_CI = [
+    {
+        "type": "function",
+        "function": {
+            "name": "run_code",
+            "description": "执行Python代码获取数据、分析、绘图。可访问项目所有模块（预报/探空/历史/农业/Open-Meteo）。用print输出文字结果，用plt画图（不调savefig）。一次代码可完成取数据+分析+画图全流程",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Python代码。不用import matplotlib.use或调plt.savefig，它们由环境自动处理"}
+                },
+                "required": ["code"]
+            }
+        }
+    }
+]
+
+
+def run_code(code=None):
+    """Code Interpreter 沙箱：执行Python代码，返回stdout文本 + matplotlib图表"""
+    if not code:
+        return {"success": False, "stdout": "", "image_base64": None,
+                "error": "code参数为空，请提供Python代码"}
+    import re
+
+    # 清理代码
+    code = re.sub(r'^import matplotlib\s*\n\s*matplotlib\.use\(.*?\)\s*\n', '', code, flags=re.MULTILINE)
+    code = re.sub(r'\n\s*plt\.savefig\(.*?\)\s*\n', '\n', code)
+    code = re.sub(r'\n\s*plt\.close\(.*?\)\s*\n', '\n', code)
+
+    stdout_buf = io.StringIO()
+    img_buf = io.BytesIO()
+
+    safe_builtins = {
+        'print': lambda *a, **k: print(*a, **k, file=stdout_buf),
+        'len': len, 'range': range, 'list': list, 'dict': dict, 'set': set, 'tuple': tuple,
+        'str': str, 'int': int, 'float': float, 'bool': bool, 'type': type,
+        'min': min, 'max': max, 'sum': sum, 'abs': abs, 'round': round,
+        'zip': zip, 'enumerate': enumerate, 'sorted': sorted, 'reversed': reversed,
+        'True': True, 'False': False, 'None': None,
+        'isinstance': isinstance, 'any': any, 'all': all,
+        'hasattr': hasattr, 'getattr': getattr,
+        'Exception': Exception, 'ValueError': ValueError, 'KeyError': KeyError,
+        'IndexError': IndexError, 'TypeError': TypeError,
+        'json': json,
+    }
+
+    namespace = {
+        '__builtins__': {**safe_builtins, '__import__': __import__},
+        'plt': plt,
+        'np': __import__('numpy'),
+        'pd': pd,
+        'datetime': datetime,
+        'timedelta': timedelta,
+        'requests': requests,
+        'json': json,
+    }
+
+    # 预导入项目模块
+    for mod_name in ['advanced_forecast_service', 'history_analyzer',
+                       'sounding_parser', 'sounding_analyzer', 'sounding_plotter',
+                       'crop_database', 'agro_calculator', 'agro_alert_engine',
+                       'ml_correction', 'ml_correction_v2', 'chart_generator']:
+        try:
+            namespace[mod_name] = __import__(mod_name)
+        except Exception:
+            pass
+
+    # 暴露高层函数（CI模式核心：LLM直接调用，不造轮子）
+    namespace['get_current_weather'] = get_current_weather
+    namespace['get_forecast_summary'] = get_forecast
+    namespace['get_washing_advice'] = get_washing_advice
+    namespace['get_sounding_analysis'] = get_upper_air_data
+    namespace['get_historical_stats'] = get_historical_stats
+    namespace['get_daily_climatology'] = get_daily_climatology
+    namespace['get_crop_info'] = get_crop_info
+    # calc_crop_gdd 通过下面注入
+
+    # 积温辅助函数（基于ERA5-Land + ECMWF预报）
+    def _calc_crop_gdd(crop_id, sowing_date=None):
+        from crop_database import crop_db
+        info = crop_db.get_crop_info(crop_id)
+        if not info:
+            return f"未找到作物: {crop_id}"
+        base = info.get('gdd_base', 10)
+        total = info.get('gdd_total', 0)
+        if total == 0:
+            return f"{info['name']}无积温配置"
+
+        today = datetime.now()
+        # 确定起始日
+        if sowing_date:
+            try:
+                start = datetime.strptime(sowing_date, '%Y-%m-%d')
+            except Exception:
+                return f"日期格式错误: {sowing_date}，请用YYYY-MM-DD"
+        else:
+            gs = info.get('gdd_start', '01-01')
+            if gs == 'user':
+                return f"{info['name']}需要指定播种日期，请提供sowing_date参数"
+            start = datetime(today.year, *map(int, gs.split('-')))
+
+        svc = _get_forecast_svc()
+        # 历史积温：用 forecast API + past_days（archive API 无2026年数据）
+        hist_gdd = 0
+        try:
+            days_since_start = (today - start).days
+            past_days = min(max(days_since_start, 7), 92)
+            hist = requests.get("https://api.open-meteo.com/v1/forecast", params={
+                "latitude": 30.25, "longitude": 120.17,
+                "past_days": past_days,
+                "daily": "temperature_2m_mean",
+                "timezone": "Asia/Shanghai"
+            }, timeout=15).json()
+            daily_data = hist.get('daily', {}) if isinstance(hist, dict) else {}
+            times = daily_data.get('time', [])
+            temps = daily_data.get('temperature_2m_mean', [])
+            for i, t in enumerate(temps):
+                if i < len(times) and t is not None and times[i] >= start.strftime('%Y-%m-%d'):
+                    hist_gdd += max(0, float(t) - base)
+        except Exception:
+            hist_gdd = 0
+
+        # 预报积温(ECMWF)
+        try:
+            fc = svc.fetch_multi_model_forecast(7).get('ecmwf_ifs', {})
+            fc_inner = fc.get('data', {}).get('data', {})
+            fc_temps = fc_inner.get('temperature_2m', [])
+            fc_timestamps = fc.get('data', {}).get('timestamps', [])
+            daily_temps = {}
+            for i, ts_str in enumerate(fc_timestamps):
+                try:
+                    dt = datetime.strptime(ts_str, '%Y-%m-%d %H:%M')
+                    dk = dt.strftime('%Y-%m-%d')
+                    if dk not in daily_temps:
+                        daily_temps[dk] = {'tmin': 99, 'tmax': -99}
+                    if i < len(fc_temps) and fc_temps[i] is not None:
+                        t = fc_temps[i]
+                        daily_temps[dk]['tmin'] = min(daily_temps[dk]['tmin'], t)
+                        daily_temps[dk]['tmax'] = max(daily_temps[dk]['tmax'], t)
+                except Exception:
+                    pass
+            fc_gdd = sum(max(0, (v['tmax']+v['tmin'])/2 - base) for v in daily_temps.values() if v['tmin'] != 99)
+        except Exception:
+            fc_gdd = 0
+
+        curr = hist_gdd + fc_gdd
+        pct = min(curr / total * 100, 100)
+        stage = crop_db.get_current_stage(crop_id)
+        return f"{info['name']} | 积温: {curr:.0f}/{total}°C ({pct:.0f}%) | 当前阶段: {stage['name'] if stage else '未知'} | 基温: {base}°C | 起算: {start.strftime('%Y-%m-%d')}"
+    namespace['calc_crop_gdd'] = _calc_crop_gdd
+
+    wrapped = f"""
+{code}
+__fig = plt.gcf()
+if __fig.get_axes():
+    plt.savefig(_img_buf, format='png', dpi=120, bbox_inches='tight', facecolor='#F5F7FA')
+plt.close('all')
+"""
+
+    def target(_ns, _wrapped, _img, _stdout):
+        _ns['_img_buf'] = _img
+        exec(_wrapped, _ns)
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(target, namespace, wrapped, img_buf, stdout_buf)
+            future.result(timeout=15)
+    except FutureTimeoutError:
+        plt.close('all')
+        return {"success": False, "stdout": "", "image_base64": None,
+                "error": "代码执行超时(>15秒)，请简化"}
+    except SyntaxError as e:
+        plt.close('all')
+        return {"success": False, "stdout": stdout_buf.getvalue(),
+                "image_base64": None, "error": f"第{e.lineno}行语法错误: {e.msg}，请修正缩进"}
+    except Exception as e:
+        plt.close('all')
+        return {"success": False, "stdout": stdout_buf.getvalue(),
+                "image_base64": None, "error": f"{type(e).__name__}: {e}，请修正代码重试"}
+
+    img_buf.seek(0)
+    img_data = img_buf.read()
+    img_b64 = base64.b64encode(img_data).decode('utf-8') if len(img_data) > 100 else None
+
+    stdout_text = stdout_buf.getvalue()
+    if len(stdout_text) > 3000:
+        stdout_text = stdout_text[:3000] + "\n...(输出已截断)"
+
+    return {"success": True, "stdout": stdout_text, "image_base64": img_b64, "error": None}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Function Calling 模式（保留）
+# ═══════════════════════════════════════════════════════════════
+
+SYSTEM_PROMPT_FC = """你是"智慧天气"系统的AI助手，为杭州地区用户提供专业天气服务。
 
 【数据模块】
 1. 实时天气 → get_current_weather
@@ -124,9 +365,9 @@ SYSTEM_PROMPT = """你是"智慧天气"系统的AI助手，为杭州地区用户
 - 用户问"几点会下雨"→用get_forecast(days=1)获取的hourly_precip数据直接回答
 - hourly_precip包含每小时的降水mm和天气描述，可直接判断降雨时段"""
 
-# ── 工具定义 ──
+# ── FC 工具定义 ──
 
-TOOLS = [
+TOOLS_FC = [
     {
         "type": "function",
         "function": {
@@ -404,6 +645,7 @@ def _fetch_hourly_forecast(days=3, model="ecmwf_ifs"):
     humidity_vals = measurements.get("relative_humidity_2m", [])
     wind_vals = measurements.get("wind_speed_10m", [])
     weather_names = measurements.get("weather_name", [])
+    sw_vals = measurements.get("shortwave_radiation", [])
 
     # 紧凑逐小时降水数据，覆盖所有预报时次
     hourly_precip = []
@@ -441,6 +683,9 @@ def _fetch_hourly_forecast(days=3, model="ecmwf_ifs"):
             d["winds"].append(wind_vals[i])
         if i < len(weather_names) and weather_names[i]:
             d["weather_names"].append(weather_names[i])
+        if i < len(sw_vals) and sw_vals[i] is not None:
+            if "sw_rad" not in d: d["sw_rad"] = []
+            d["sw_rad"].append(sw_vals[i])
 
     daily = []
     for date_key in sorted(days_data.keys())[:days]:
@@ -462,6 +707,7 @@ def _fetch_hourly_forecast(days=3, model="ecmwf_ifs"):
             "precip_total": precip_total,
             "humidity_avg": humidity_avg, "wind_avg": wind_avg,
             "main_weather": main_weather,
+            "sw_radiation_mean": round(sum(d.get("sw_rad", [])) / len(d["sw_rad"]), 1) if d.get("sw_rad") else None,
         })
 
     return {
@@ -963,8 +1209,10 @@ def _clean_chart_code(code):
     return '\n'.join(cleaned)
 
 
-def generate_chart(code, data_json=None):
+def generate_chart(code=None, data_json=None):
     """执行自定义 matplotlib 代码生成图表（沙箱执行，10秒超时）"""
+    if not code:
+        return {"success": False, "image_base64": None, "error": "code参数为空，请提供matplotlib绘图代码"}
     data_context = {}
     if data_json:
         try:
@@ -976,7 +1224,7 @@ def generate_chart(code, data_json=None):
 
     buf = io.BytesIO()
     namespace = {
-        '__builtins__': _SAFE_BUILTINS,
+        '__builtins__': {**_SAFE_BUILTINS, '__import__': __import__},
         'plt': plt,
         'np': __import__('numpy'),
         'pd': __import__('pandas'),
@@ -1048,7 +1296,7 @@ def _call_deepseek(messages, tools=None, max_tokens=800):
     }
 
     try:
-        resp = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload, timeout=30)
+        resp = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload, timeout=45)
         if resp.status_code == 200:
             return resp.json()
         print(f"DeepSeek API error: {resp.status_code} {resp.text[:200]}")
@@ -1060,7 +1308,7 @@ def _call_deepseek(messages, tools=None, max_tokens=800):
 
 # ── 工具调度映射 ──
 
-TOOL_MAP = {
+TOOL_MAP_FC = {
     "get_current_weather": get_current_weather,
     "get_forecast": get_forecast,
     "get_washing_advice": get_washing_advice,
@@ -1077,41 +1325,65 @@ TOOL_MAP = {
 
 # ── 主流程 ──
 
-def process_chat(user_message):
-    """处理用户消息，支持多轮工具调用"""
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_message},
-    ]
+def _process_chat(user_message, mode="code_interpreter", history=None):
+    """处理用户消息，支持双模式：code_interpreter / function_calling"""
+    if mode == "code_interpreter":
+        system = SYSTEM_PROMPT_CI
+        tools = TOOLS_CI
+        tool_map = {"run_code": run_code}
+        max_rounds = 5
+    else:
+        system = SYSTEM_PROMPT_FC
+        tools = TOOLS_FC
+        tool_map = TOOL_MAP_FC
+        max_rounds = 4
 
-    max_rounds = 4
+    messages = [{"role": "system", "content": system}]
+    if history and isinstance(history, list):
+        # 限制历史轮数（最近6条消息），避免上下文过长
+        for h in history[-6:]:
+            if isinstance(h, dict) and h.get("role") in ("user", "assistant"):
+                messages.append({"role": h["role"], "content": h.get("content", "")})
+    messages.append({"role": "user", "content": user_message})
+
     collected_images = []
+    collected_stdout = ""
     error_log = []
-    tool_call_count = 0
+    token_usage = {"prompt_tokens": 0, "completion_tokens": 0,
+                   "cache_hit": 0, "cache_miss": 0, "api_calls": 0}
 
     for round_idx in range(max_rounds):
-        response = _call_deepseek(messages, tools=TOOLS)
+        response = _call_deepseek(messages, tools=tools)
 
         if not response:
             if collected_images:
-                return {"reply": "AI服务暂时不可用，但已生成的图表如下。", "image": collected_images[0]}
+                return {"reply": "AI服务暂时不可用，但已生成的图表如下。",
+                        "image": collected_images[0], "usage": token_usage}
             if error_log:
                 details = "; ".join(error_log[-3:])
-                return {"reply": f"AI服务暂时不可用。已尝试的操作: {details}", "image": None}
-            return {"reply": "抱歉，AI服务暂时不可用，请稍后再试。", "image": None}
+                return {"reply": f"AI服务暂时不可用。已尝试: {details}",
+                        "image": None, "usage": token_usage}
+            return {"reply": "抱歉，AI服务暂时不可用，请稍后再试。",
+                    "image": None, "usage": token_usage}
+
+        # 统计token
+        usage = response.get("usage", {})
+        token_usage["api_calls"] += 1
+        token_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
+        token_usage["completion_tokens"] += usage.get("completion_tokens", 0)
+        token_usage["cache_hit"] += usage.get("prompt_cache_hit_tokens", 0)
+        token_usage["cache_miss"] += usage.get("prompt_cache_miss_tokens", 0)
 
         choice = response["choices"][0]
         msg = choice["message"]
 
         if msg.get("tool_calls"):
             tool_calls = msg["tool_calls"]
-            # 每轮最多3个工具调用，防止上下文过载
             if len(tool_calls) > 3:
                 tool_calls = tool_calls[:3]
 
             tool_results = []
             for tool_call in tool_calls:
-                tool_call_count += 1
                 func_name = tool_call["function"]["name"]
                 try:
                     func_args = json.loads(tool_call["function"]["arguments"])
@@ -1119,7 +1391,7 @@ def process_chat(user_message):
                     func_args = {}
                     error_log.append(f"{func_name}(参数解析失败)")
 
-                func = TOOL_MAP.get(func_name)
+                func = tool_map.get(func_name)
                 if func:
                     try:
                         result = func(**func_args)
@@ -1133,26 +1405,82 @@ def process_chat(user_message):
                 if isinstance(result, dict):
                     if result.get("error"):
                         error_log.append(f"{func_name}: {result['error'][:80]}")
-                    elif not result.get("data_available"):
-                        error_log.append(f"{func_name}: 数据不可用")
+
+                # 收集图片和stdout
+                if isinstance(result, dict):
+                    if result.get("image_base64"):
+                        collected_images.append(result["image_base64"])
+                    if result.get("stdout") and result.get("success"):
+                        collected_stdout = result["stdout"]
+
+                # 发给LLM：去base64 + 压缩hourly_precip
+                llm_result = dict(result) if isinstance(result, dict) else result
+                if isinstance(llm_result, dict):
+                    llm_result.pop("image_base64", None)
+                    hp = llm_result.get("hourly_precip")
+                    if isinstance(hp, list) and len(hp) > 24:
+                        llm_result["hourly_precip"] = [h for h in hp if h.get("p", 0) > 0]
 
                 tool_results.append({
                     "tool_call_id": tool_call["id"],
                     "role": "tool",
-                    "content": json.dumps(result, ensure_ascii=False, default=str),
+                    "content": json.dumps(llm_result, ensure_ascii=False, default=str),
                 })
-
-                if isinstance(result, dict) and result.get("image_base64"):
-                    collected_images.append(result["image_base64"])
 
             messages.append(msg)
             messages.extend(tool_results)
             continue
 
         reply = msg.get("content", "").strip()
+        import re as _re
+        reply = _re.sub(r'<\||\|?DSML\|?.*?tool_calls.*?>', '', reply, flags=_re.DOTALL)
+        reply = reply.strip()
+        # stdout降级：LLM回复太短时用代码输出（但拒绝对原始数据dump）
+        if len(reply) < 25 and collected_stdout:
+            lines = collected_stdout.strip().split('\n')
+            # 拒绝数据dump: 超过30行 或 有时戳模式 或 含Python对象repr
+            is_dump = (len(lines) > 30 or
+                       any('°C 降水:' in l for l in lines[:5]) or
+                       any(l.strip().startswith('{') and 'name' in l for l in lines[:5]))
+            if not is_dump:
+                filtered = '\n'.join(l for l in lines
+                           if '__' not in l and '.py' not in l and '/static/' not in l)
+                if filtered.strip():
+                    reply = filtered.strip()
         image_b64 = collected_images[0] if collected_images else None
-        return {"reply": reply, "image": image_b64}
+        return {"reply": reply, "image": image_b64, "usage": token_usage}
 
-    # 轮次耗尽
     problems = "; ".join(error_log[-3:]) if error_log else "多次尝试未能获取足够数据"
-    return {"reply": f"抱歉，{problems}。请尝试简化问题或换个方式提问。", "image": collected_images[0] if collected_images else None}
+    fallback_reply = f"抱歉，{problems}。请尝试简化问题或换个方式提问。"
+    if collected_stdout:
+        lines = collected_stdout.strip().split('\n')
+        is_dump = (len(lines) > 30 or
+                   any('°C 降水:' in l for l in lines[:5]) or
+                   any(l.strip().startswith('{') and 'name' in l for l in lines[:5]))
+        if not is_dump:
+            filtered = '\n'.join(l for l in lines
+                       if '__' not in l and '.py' not in l and '/static/' not in l)
+            if filtered.strip():
+                fallback_reply = filtered.strip()
+    return {"reply": fallback_reply,
+            "image": collected_images[0] if collected_images else None, "usage": token_usage}
+
+
+def process_chat(user_message, mode="code_interpreter", history=None):
+    """CI模式，失败自动降级FC"""
+    result = _process_chat(user_message, mode, history)
+    reply = result.get("reply", "")
+
+    # CI模式检测低质量回复 → 自动降级FC
+    is_bad = (mode == "code_interpreter" and
+              ("抱歉" in reply or len(reply) < 15 or
+               (reply.strip().startswith('[') and 'get_' in reply) or
+               reply.strip().startswith('{')))
+
+    if is_bad:
+        fc_result = _process_chat(user_message, "function_calling", history)
+        fc_result["degraded"] = True
+        return fc_result
+
+    result["degraded"] = False
+    return result

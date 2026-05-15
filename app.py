@@ -1386,14 +1386,19 @@ def generate_ai_analysis():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """智慧天气Agent聊天接口"""
+    """智慧天气Agent聊天接口（支持 mode=code_interpreter/function_calling）"""
     try:
         data = request.get_json(silent=True) or {}
         message = (data.get('message') or '').strip()
         if not message:
             return jsonify({"reply": "请问有什么可以帮您的？", "image": None})
 
-        result = process_chat(message)
+        mode = data.get('mode', 'code_interpreter')
+        if mode not in ('code_interpreter', 'function_calling'):
+            mode = 'code_interpreter'
+        history = data.get('history', None)
+
+        result = process_chat(message, mode=mode, history=history)
         return jsonify(result)
     except Exception as e:
         print(f"Chat error: {e}")
